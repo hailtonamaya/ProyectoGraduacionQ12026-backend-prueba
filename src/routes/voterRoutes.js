@@ -7,20 +7,30 @@ const { validate } = require('../middleware/validate')
 
 router.use(authenticate, authorize('admin', 'admin_master'))
 
-// Votantes por eleccion
-router.get('/election/:electionId', voterController.getAll)
-router.get('/:id', voterController.getById)
+// --- Perfiles de votantes ---
+router.get('/profiles', voterController.getAllProfiles)
+router.get('/profiles/:id', voterController.getProfileById)
+
+router.post('/profiles', validate({
+  full_name: { required: true, type: 'string', minLength: 2 },
+  institutional_id: { required: true, type: 'string' },
+  email: { required: true, type: 'email' },
+  password: { required: true, type: 'string', minLength: 6 },
+  organization_id: { required: true, type: 'string' }
+}), voterController.createProfile)
+
+router.put('/profiles/:id', voterController.updateProfile)
+router.delete('/profiles/:id', voterController.removeProfile)
+
+// --- Habilitacion de votantes por eleccion ---
+router.get('/election/:electionId', voterController.getByElection)
 
 router.post('/election/:electionId', validate({
-  full_name: { required: true, type: 'string', minLength: 2 },
-  account_number: { required: true, type: 'string' },
-  email: { required: true, type: 'email' }
-}), voterController.create)
+  voter_id: { required: true, type: 'string' }
+}), voterController.enableVoter)
 
-// Importar votantes en lote
-router.post('/election/:electionId/import', voterController.bulkCreate)
+router.post('/election/:electionId/bulk', voterController.bulkEnableVoters)
 
-router.put('/:id', voterController.update)
-router.delete('/:id', voterController.remove)
+router.delete('/:id', voterController.disableVoter)
 
 module.exports = router

@@ -1,13 +1,14 @@
 const supabase = require('../config/supabase')
 
-async function getAll({ status, search } = {}) {
+async function getAll({ status, search, organization_id } = {}) {
   let query = supabase
     .from('election')
-    .select('*, campus(id, name), admin:created_by(id, full_name)')
+    .select('*, organization:organization_id(organization_id, name, code), admin:created_by(admin_id, full_name)')
     .order('created_at', { ascending: false })
 
   if (status) query = query.eq('status', status)
-  if (search) query = query.ilike('name', `%${search}%`)
+  if (organization_id) query = query.eq('organization_id', organization_id)
+  if (search) query = query.ilike('title', `%${search}%`)
 
   const { data, error } = await query
   if (error) throw new Error(error.message)
@@ -17,19 +18,19 @@ async function getAll({ status, search } = {}) {
 async function getById(id) {
   const { data, error } = await supabase
     .from('election')
-    .select('*, campus(id, name), admin:created_by(id, full_name)')
-    .eq('id', id)
+    .select('*, organization:organization_id(organization_id, name, code), admin:created_by(admin_id, full_name)')
+    .eq('election_id', id)
     .single()
 
   if (error) throw { status: 404, message: 'Eleccion no encontrada' }
   return data
 }
 
-async function create({ name, description, campus_id, start_date, end_date, created_by }) {
+async function create({ title, description, start_at, end_at, organization_id, created_by }) {
   const { data, error } = await supabase
     .from('election')
-    .insert({ name, description, campus_id, start_date, end_date, status: 'draft', created_by })
-    .select('*, campus(id, name)')
+    .insert({ title, description, start_at, end_at, organization_id, created_by, status: 'draft' })
+    .select('*, organization:organization_id(organization_id, name, code)')
     .single()
 
   if (error) throw new Error(error.message)
@@ -37,17 +38,17 @@ async function create({ name, description, campus_id, start_date, end_date, crea
 }
 
 async function update(id, updates) {
-  const updateData = { updated_at: new Date().toISOString() }
-  const fields = ['name', 'description', 'campus_id', 'start_date', 'end_date']
-  for (const field of fields) {
+  const allowed = ['title', 'description', 'start_at', 'end_at', 'organization_id']
+  const updateData = {}
+  for (const field of allowed) {
     if (updates[field] !== undefined) updateData[field] = updates[field]
   }
 
   const { data, error } = await supabase
     .from('election')
     .update(updateData)
-    .eq('id', id)
-    .select('*, campus(id, name)')
+    .eq('election_id', id)
+    .select('*, organization:organization_id(organization_id, name, code)')
     .single()
 
   if (error) throw new Error(error.message)
@@ -57,14 +58,14 @@ async function update(id, updates) {
 
 async function remove(id) {
   const election = await getById(id)
-  if (election.status === 'active') {
-    throw { status: 400, message: 'No se puede eliminar una eleccion activa' }
+  if (election.status === 'open') {
+    throw { status: 400, message: 'No se puede eliminar una eleccion abierta' }
   }
 
   const { error } = await supabase
     .from('election')
     .delete()
-    .eq('id', id)
+    .eq('election_id', id)
 
   if (error) throw new Error(error.message)
   return true
@@ -75,13 +76,15 @@ async function duplicate(id) {
   const { data, error } = await supabase
     .from('election')
     .insert({
-      name: `${original.name} (copia)`,
+      title: `${original.title} (copia)`,
       description: original.description,
-      campus_id: original.campus_id,
-      status: 'draft',
-      created_by: original.created_by
+      start_at: original.start_at,
+      end_at: original.end_at,
+      organization_id: original.organization_id,
+      created_by: original.created_by,
+      status: 'draft'
     })
-    .select('*, campus(id, name)')
+    .select('*, organization:organization_id(organization_id, name, code)')
     .single()
 
   if (error) throw new Error(error.message)
@@ -91,10 +94,9 @@ async function duplicate(id) {
 async function changeStatus(id, newStatus) {
   const election = await getById(id)
   const transitions = {
-    draft: ['active'],
-    active: ['closed'],
-    closed: ['archived'],
-    archived: ['draft']
+    draft: ['open'],
+    open: ['closed'],
+    closed: ['draft']
   }
 
   const allowed = transitions[election.status] || []
@@ -102,15 +104,15 @@ async function changeStatus(id, newStatus) {
     throw { status: 400, message: `No se puede cambiar de '${election.status}' a '${newStatus}'` }
   }
 
-  if (newStatus === 'active') {
+  if (newStatus === 'open') {
     await validateElectionReady(id)
   }
 
   const { data, error } = await supabase
     .from('election')
-    .update({ status: newStatus, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select('*, campus(id, name)')
+    .update({ status: newStatus })
+    .eq('election_id', id)
+    .select('*, organization:organization_id(organization_id, name, code)')
     .single()
 
   if (error) throw new Error(error.message)
@@ -118,33 +120,36 @@ async function changeStatus(id, newStatus) {
 }
 
 async function validateElectionReady(electionId) {
-  const { data: associations } = await supabase
-    .from('association')
-    .select('id')
+  // Verificar que tiene posiciones
+  const { data: positions } = await supabase
+    .from('position')
+    .select('position_id, name')
     .eq('election_id', electionId)
 
-  if (!associations || associations.length === 0) {
-    throw { status: 400, message: 'La eleccion debe tener al menos una asociacion' }
+  if (!positions || positions.length === 0) {
+    throw { status: 400, message: 'La eleccion debe tener al menos un cargo/posicion' }
   }
 
-  for (const assoc of associations) {
-    const { data: candidates } = await supabase
-      .from('candidate')
-      .select('id')
-      .eq('association_id', assoc.id)
+  // Verificar que cada posicion tiene candidatos
+  for (const pos of positions) {
+    const { data: cips } = await supabase
+      .from('candidate_in_position')
+      .select('candidate_in_position_id')
+      .eq('position_id', pos.position_id)
 
-    if (!candidates || candidates.length === 0) {
-      throw { status: 400, message: 'Todas las asociaciones deben tener al menos un candidato' }
+    if (!cips || cips.length === 0) {
+      throw { status: 400, message: `El cargo "${pos.name}" no tiene candidatos asignados` }
     }
   }
 
+  // Verificar que tiene votantes habilitados
   const { data: voters } = await supabase
-    .from('voter')
-    .select('id')
+    .from('election_voter')
+    .select('election_voter_id')
     .eq('election_id', electionId)
 
   if (!voters || voters.length === 0) {
-    throw { status: 400, message: 'La eleccion debe tener al menos un votante registrado' }
+    throw { status: 400, message: 'La eleccion debe tener al menos un votante habilitado' }
   }
 
   return true
@@ -153,91 +158,78 @@ async function validateElectionReady(electionId) {
 async function getResults(id) {
   const election = await getById(id)
 
-  const { data: votes, error } = await supabase
-    .from('vote')
-    .select('association_id, is_blank')
+  // Resultados por posicion usando la vista
+  const { data: results, error: resultsError } = await supabase
+    .from('v_results_by_position')
+    .select('*')
     .eq('election_id', id)
 
-  if (error) throw new Error(error.message)
-
-  const { data: associations } = await supabase
-    .from('association')
-    .select('id, name, photo_url, career:career_id(id, name)')
+  // Participacion
+  const { data: participation } = await supabase
+    .from('v_participation')
+    .select('*')
     .eq('election_id', id)
+    .single()
 
-  const { data: voters } = await supabase
-    .from('voter')
-    .select('id')
+  // Votos en blanco
+  const { data: blankVotes } = await supabase
+    .from('v_blank_votes')
+    .select('*')
     .eq('election_id', id)
-
-  const totalVoters = voters ? voters.length : 0
-  const totalVotes = votes ? votes.length : 0
-  const blankVotes = votes ? votes.filter(v => v.is_blank).length : 0
-
-  const results = (associations || []).map(assoc => {
-    const voteCount = votes ? votes.filter(v => v.association_id === assoc.id).length : 0
-    return {
-      association: assoc,
-      votes: voteCount,
-      percentage: totalVotes > 0 ? ((voteCount / totalVotes) * 100).toFixed(2) : '0.00'
-    }
-  }).sort((a, b) => b.votes - a.votes)
 
   return {
-    election: { id: election.id, name: election.name, status: election.status },
-    total_voters: totalVoters,
-    total_votes: totalVotes,
-    participation: totalVoters > 0 ? ((totalVotes / totalVoters) * 100).toFixed(2) : '0.00',
-    blank_votes: blankVotes,
-    results
+    election: { election_id: election.election_id, title: election.title, status: election.status },
+    participation: participation || { total_habilitados: 0, total_votaron: 0, participacion_pct: 0 },
+    results_by_position: results || [],
+    blank_votes: blankVotes || []
   }
 }
 
 async function getValidation(id) {
   const election = await getById(id)
-
-  const { data: associations } = await supabase
-    .from('association')
-    .select('id, name')
-    .eq('election_id', id)
-
   const issues = []
-  const associationDetails = []
 
-  if (!associations || associations.length === 0) {
-    issues.push('No hay asociaciones creadas')
-  } else {
-    for (const assoc of associations) {
-      const { data: candidates } = await supabase
-        .from('candidate')
-        .select('id')
-        .eq('association_id', assoc.id)
+  // Posiciones
+  const { data: positions } = await supabase
+    .from('position')
+    .select('position_id, name')
+    .eq('election_id', id)
+    .order('position_order')
 
-      const count = candidates ? candidates.length : 0
-      associationDetails.push({ name: assoc.name, candidates: count })
+  if (!positions || positions.length === 0) {
+    issues.push('No hay cargos/posiciones creados')
+  }
+
+  const positionDetails = []
+  if (positions) {
+    for (const pos of positions) {
+      const { data: cips } = await supabase
+        .from('candidate_in_position')
+        .select('candidate_in_position_id')
+        .eq('position_id', pos.position_id)
+
+      const count = cips ? cips.length : 0
+      positionDetails.push({ name: pos.name, candidates: count })
       if (count === 0) {
-        issues.push(`La asociacion "${assoc.name}" no tiene candidatos`)
+        issues.push(`El cargo "${pos.name}" no tiene candidatos`)
       }
     }
   }
 
+  // Votantes
   const { data: voters } = await supabase
-    .from('voter')
-    .select('id')
+    .from('election_voter')
+    .select('election_voter_id')
     .eq('election_id', id)
 
   if (!voters || voters.length === 0) {
-    issues.push('No hay votantes registrados')
-  }
-
-  if (!election.start_date || !election.end_date) {
-    issues.push('Fechas de inicio y fin no configuradas')
+    issues.push('No hay votantes habilitados')
   }
 
   return {
-    election: { id: election.id, name: election.name, status: election.status },
+    election: { election_id: election.election_id, title: election.title, status: election.status },
     is_ready: issues.length === 0,
-    associations: associationDetails,
+    positions: positionDetails,
     voters_count: voters ? voters.length : 0,
     issues
   }

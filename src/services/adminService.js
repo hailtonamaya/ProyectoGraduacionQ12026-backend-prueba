@@ -4,7 +4,7 @@ const supabase = require('../config/supabase')
 async function getAll() {
   const { data, error } = await supabase
     .from('admin')
-    .select('id, email, full_name, role, is_active, created_at, updated_at')
+    .select('admin_id, email, full_name, role, is_active, created_at, updated_at')
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -14,8 +14,8 @@ async function getAll() {
 async function getById(id) {
   const { data, error } = await supabase
     .from('admin')
-    .select('id, email, full_name, role, is_active, created_at, updated_at')
-    .eq('id', id)
+    .select('admin_id, email, full_name, role, is_active, created_at, updated_at')
+    .eq('admin_id', id)
     .single()
 
   if (error) throw { status: 404, message: 'Administrador no encontrado' }
@@ -28,7 +28,7 @@ async function create({ email, password, full_name, role = 'admin' }) {
   const { data, error } = await supabase
     .from('admin')
     .insert({ email, password_hash, full_name, role })
-    .select('id, email, full_name, role, is_active, created_at')
+    .select('admin_id, email, full_name, role, is_active, created_at')
     .single()
 
   if (error) {
@@ -50,8 +50,8 @@ async function update(id, updates) {
   const { data, error } = await supabase
     .from('admin')
     .update(updateData)
-    .eq('id', id)
-    .select('id, email, full_name, role, is_active, created_at, updated_at')
+    .eq('admin_id', id)
+    .select('admin_id, email, full_name, role, is_active, created_at, updated_at')
     .single()
 
   if (error) throw new Error(error.message)
@@ -67,7 +67,7 @@ async function remove(id) {
   const { error } = await supabase
     .from('admin')
     .delete()
-    .eq('id', id)
+    .eq('admin_id', id)
 
   if (error) throw new Error(error.message)
   return true

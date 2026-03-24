@@ -3,8 +3,8 @@ const { success, created, error } = require('../utils/responseHelper')
 
 async function getAll(req, res, next) {
   try {
-    const { status, search } = req.query
-    const data = await electionService.getAll({ status, search })
+    const { status, search, organization_id } = req.query
+    const data = await electionService.getAll({ status, search, organization_id })
     return success(res, data)
   } catch (err) {
     next(err)
@@ -60,10 +60,10 @@ async function duplicate(req, res, next) {
   }
 }
 
-async function activate(req, res, next) {
+async function open(req, res, next) {
   try {
-    const data = await electionService.changeStatus(req.params.id, 'active')
-    return success(res, data, 'Eleccion activada')
+    const data = await electionService.changeStatus(req.params.id, 'open')
+    return success(res, data, 'Eleccion abierta')
   } catch (err) {
     if (err.status) return error(res, err.message, err.status)
     next(err)
@@ -80,20 +80,10 @@ async function close(req, res, next) {
   }
 }
 
-async function archive(req, res, next) {
-  try {
-    const data = await electionService.changeStatus(req.params.id, 'archived')
-    return success(res, data, 'Eleccion archivada')
-  } catch (err) {
-    if (err.status) return error(res, err.message, err.status)
-    next(err)
-  }
-}
-
-async function unarchive(req, res, next) {
+async function reopen(req, res, next) {
   try {
     const data = await electionService.changeStatus(req.params.id, 'draft')
-    return success(res, data, 'Eleccion desarchivada')
+    return success(res, data, 'Eleccion reabierta como borrador')
   } catch (err) {
     if (err.status) return error(res, err.message, err.status)
     next(err)
@@ -122,5 +112,5 @@ async function getValidation(req, res, next) {
 
 module.exports = {
   getAll, getById, create, update, remove, duplicate,
-  activate, close, archive, unarchive, getResults, getValidation
+  open, close, reopen, getResults, getValidation
 }

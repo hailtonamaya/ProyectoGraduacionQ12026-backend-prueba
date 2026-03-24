@@ -3,16 +3,18 @@ const router = express.Router()
 const voteController = require('../controllers/voteController')
 const { authenticateVoter } = require('../middleware/auth')
 
-// Todas las rutas requieren auth de votante
 router.use(authenticateVoter)
 
-// Obtener info de la eleccion (asociaciones y candidatos)
-router.get('/election', voteController.getElectionInfo)
+// Ver elecciones disponibles
+router.get('/elections', voteController.getMyElections)
 
-// Estado del votante
-router.get('/status', voteController.getStatus)
+// Ver boleta (posiciones + candidatos)
+router.get('/elections/:electionId/ballot', voteController.getBallot)
 
-// Emitir voto (association_id: null = voto en blanco)
-router.post('/cast', voteController.castVote)
+// Emitir voto
+router.post('/elections/:electionId/cast', voteController.castVote)
+
+// Estado del voto
+router.get('/elections/:electionId/status', voteController.getStatus)
 
 module.exports = router

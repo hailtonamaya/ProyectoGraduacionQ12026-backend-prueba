@@ -10,13 +10,13 @@ router.post('/login', validate({
   password: { required: true, type: 'string', minLength: 6 }
 }), authController.loginAdmin)
 
-// Login estudiante/votante
+// Login votante (Supabase Auth)
 router.post('/login-voter', validate({
   email: { required: true, type: 'email' },
-  voting_code: { required: true, type: 'string' }
+  password: { required: true, type: 'string' }
 }), authController.loginVoter)
 
-// Perfil (requiere auth)
+// Perfil admin (requiere auth)
 router.get('/profile', authenticate, authController.getProfile)
 router.put('/profile', authenticate, authController.updateProfile)
 router.put('/change-password', authenticate, validate({

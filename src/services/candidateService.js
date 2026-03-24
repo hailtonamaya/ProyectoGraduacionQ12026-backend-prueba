@@ -1,12 +1,15 @@
 const supabase = require('../config/supabase')
 
-async function getAllByAssociation(associationId) {
-  const { data, error } = await supabase
+async function getAll({ organization_id, search } = {}) {
+  let query = supabase
     .from('candidate')
-    .select('*')
-    .eq('association_id', associationId)
-    .order('created_at')
+    .select('*, organization:organization_id(organization_id, name, code)')
+    .order('full_name')
 
+  if (organization_id) query = query.eq('organization_id', organization_id)
+  if (search) query = query.ilike('full_name', `%${search}%`)
+
+  const { data, error } = await query
   if (error) throw new Error(error.message)
   return data
 }
@@ -14,53 +17,54 @@ async function getAllByAssociation(associationId) {
 async function getById(id) {
   const { data, error } = await supabase
     .from('candidate')
-    .select('*, association:association_id(id, name)')
-    .eq('id', id)
+    .select('*, organization:organization_id(organization_id, name, code)')
+    .eq('candidate_id', id)
     .single()
 
   if (error) throw { status: 404, message: 'Candidato no encontrado' }
   return data
 }
 
-async function create(associationId, { full_name, photo_url, role }) {
+async function create({ full_name, bio, photo_url, organization_id }) {
   const { data, error } = await supabase
     .from('candidate')
-    .insert({ association_id: associationId, full_name, photo_url, role })
-    .select()
+    .insert({ full_name, bio, photo_url, organization_id })
+    .select('*, organization:organization_id(organization_id, name, code)')
     .single()
 
   if (error) throw new Error(error.message)
   return data
 }
 
-async function bulkCreate(associationId, candidates) {
+async function bulkCreate(candidates) {
   const rows = candidates.map(c => ({
-    association_id: associationId,
     full_name: c.full_name,
+    bio: c.bio || null,
     photo_url: c.photo_url || null,
-    role: c.role || null
+    organization_id: c.organization_id || null
   }))
 
   const { data, error } = await supabase
     .from('candidate')
     .insert(rows)
-    .select()
+    .select('*, organization:organization_id(organization_id, name, code)')
 
   if (error) throw new Error(error.message)
   return data
 }
 
 async function update(id, updates) {
+  const allowed = ['full_name', 'bio', 'photo_url', 'organization_id']
   const updateData = {}
-  if (updates.full_name !== undefined) updateData.full_name = updates.full_name
-  if (updates.photo_url !== undefined) updateData.photo_url = updates.photo_url
-  if (updates.role !== undefined) updateData.role = updates.role
+  for (const field of allowed) {
+    if (updates[field] !== undefined) updateData[field] = updates[field]
+  }
 
   const { data, error } = await supabase
     .from('candidate')
     .update(updateData)
-    .eq('id', id)
-    .select()
+    .eq('candidate_id', id)
+    .select('*, organization:organization_id(organization_id, name, code)')
     .single()
 
   if (error) throw new Error(error.message)
@@ -72,10 +76,10 @@ async function remove(id) {
   const { error } = await supabase
     .from('candidate')
     .delete()
-    .eq('id', id)
+    .eq('candidate_id', id)
 
   if (error) throw new Error(error.message)
   return true
 }
 
-module.exports = { getAllByAssociation, getById, create, bulkCreate, update, remove }
+module.exports = { getAll, getById, create, bulkCreate, update, remove }

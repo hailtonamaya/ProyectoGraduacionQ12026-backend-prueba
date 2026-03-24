@@ -5,7 +5,6 @@ const { authenticate } = require('../middleware/auth')
 const { authorize } = require('../middleware/authorize')
 const { validate } = require('../middleware/validate')
 
-// Todas las rutas requieren auth de admin
 router.use(authenticate, authorize('admin', 'admin_master'))
 
 // CRUD
@@ -13,20 +12,22 @@ router.get('/', electionController.getAll)
 router.get('/:id', electionController.getById)
 
 router.post('/', validate({
-  name: { required: true, type: 'string', minLength: 2 }
+  title: { required: true, type: 'string', minLength: 2 },
+  organization_id: { required: true, type: 'string' },
+  start_at: { required: true, type: 'string' },
+  end_at: { required: true, type: 'string' }
 }), electionController.create)
 
 router.put('/:id', electionController.update)
 router.delete('/:id', electionController.remove)
 
-// Acciones especiales
+// Acciones
 router.post('/:id/duplicate', electionController.duplicate)
-router.put('/:id/activate', electionController.activate)
+router.put('/:id/open', electionController.open)
 router.put('/:id/close', electionController.close)
-router.put('/:id/archive', electionController.archive)
-router.put('/:id/unarchive', electionController.unarchive)
+router.put('/:id/reopen', electionController.reopen)
 
-// Resultados y validacion
+// Reportes
 router.get('/:id/results', electionController.getResults)
 router.get('/:id/validate', electionController.getValidation)
 

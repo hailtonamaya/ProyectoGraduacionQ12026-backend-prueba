@@ -1,106 +1,210 @@
 const supabase = require('../config/supabase')
 
-async function castVote(voterId, electionId, associationId) {
-  // Verificar que el votante existe y no ha votado
+async function getElectionForVoter(authUserId) {
+  // Obtener perfil del votante
   const { data: voter, error: voterError } = await supabase
-    .from('voter')
-    .select('id, has_voted, election_id')
-    .eq('id', voterId)
-    .eq('election_id', electionId)
+    .from('voter_profile')
+    .select('voter_id, full_name, organization:organization_id(name, code)')
+    .eq('auth_user_id', authUserId)
     .single()
 
   if (voterError || !voter) {
-    throw { status: 404, message: 'Votante no encontrado en esta eleccion' }
+    throw { status: 404, message: 'Perfil de votante no encontrado' }
   }
 
-  if (voter.has_voted) {
-    throw { status: 400, message: 'Ya has emitido tu voto' }
-  }
+  // Obtener elecciones activas donde esta habilitado
+  const { data: enablements } = await supabase
+    .from('election_voter')
+    .select(`
+      election_voter_id,
+      has_voted,
+      election:election_id(
+        election_id, title, description, status, start_at, end_at,
+        organization:organization_id(name, code)
+      )
+    `)
+    .eq('voter_id', voter.voter_id)
+    .eq('has_voted', false)
 
-  // Verificar que la eleccion esta activa
+  const activeElections = (enablements || [])
+    .filter(e => e.election && e.election.status === 'open')
+
+  return { voter, elections: activeElections }
+}
+
+async function getElectionBallot(electionId, authUserId) {
+  // Verificar votante
+  const { data: voter } = await supabase
+    .from('voter_profile')
+    .select('voter_id')
+    .eq('auth_user_id', authUserId)
+    .single()
+
+  if (!voter) throw { status: 404, message: 'Perfil de votante no encontrado' }
+
+  // Verificar habilitacion
+  const { data: ev } = await supabase
+    .from('election_voter')
+    .select('election_voter_id, has_voted')
+    .eq('election_id', electionId)
+    .eq('voter_id', voter.voter_id)
+    .single()
+
+  if (!ev) throw { status: 403, message: 'No estas habilitado para votar en esta eleccion' }
+  if (ev.has_voted) throw { status: 400, message: 'Ya emitiste tu voto en esta eleccion' }
+
+  // Obtener eleccion con posiciones y candidatos
+  const { data: election } = await supabase
+    .from('election')
+    .select('election_id, title, description, organization:organization_id(name)')
+    .eq('election_id', electionId)
+    .eq('status', 'open')
+    .single()
+
+  if (!election) throw { status: 404, message: 'Eleccion no encontrada o no esta abierta' }
+
+  const { data: positions } = await supabase
+    .from('position')
+    .select(`
+      position_id, name, min_votes, max_votes, allows_blank, position_order,
+      candidates:candidate_in_position(
+        candidate_in_position_id,
+        candidate:candidate_id(candidate_id, full_name, bio, photo_url, organization:organization_id(name, code))
+      )
+    `)
+    .eq('election_id', electionId)
+    .order('position_order')
+
+  return { election, positions: positions || [] }
+}
+
+async function castVote(electionId, authUserId, votes) {
+  // Verificar votante
+  const { data: voter } = await supabase
+    .from('voter_profile')
+    .select('voter_id')
+    .eq('auth_user_id', authUserId)
+    .single()
+
+  if (!voter) throw { status: 404, message: 'Perfil de votante no encontrado' }
+
+  // Verificar habilitacion
+  const { data: ev } = await supabase
+    .from('election_voter')
+    .select('election_voter_id, has_voted')
+    .eq('election_id', electionId)
+    .eq('voter_id', voter.voter_id)
+    .single()
+
+  if (!ev) throw { status: 403, message: 'No estas habilitado para votar en esta eleccion' }
+  if (ev.has_voted) throw { status: 400, message: 'Ya emitiste tu voto' }
+
+  // Verificar eleccion abierta
   const { data: election } = await supabase
     .from('election')
     .select('status')
-    .eq('id', electionId)
+    .eq('election_id', electionId)
     .single()
 
-  if (!election || election.status !== 'active') {
-    throw { status: 400, message: 'La eleccion no esta activa' }
+  if (!election || election.status !== 'open') {
+    throw { status: 400, message: 'La eleccion no esta abierta' }
   }
 
-  const isBlank = !associationId
+  // Verificar que se voto en todas las posiciones
+  const { data: positions } = await supabase
+    .from('position')
+    .select('position_id, name, allows_blank')
+    .eq('election_id', electionId)
 
-  // Si no es voto en blanco, verificar que la asociacion pertenece a la eleccion
-  if (!isBlank) {
-    const { data: association } = await supabase
-      .from('association')
-      .select('id')
-      .eq('id', associationId)
-      .eq('election_id', electionId)
-      .single()
+  const positionIds = new Set(positions.map(p => p.position_id))
+  const votedPositions = new Set(votes.map(v => v.position_id))
 
-    if (!association) {
-      throw { status: 400, message: 'Asociacion no valida para esta eleccion' }
+  for (const pos of positions) {
+    if (!votedPositions.has(pos.position_id)) {
+      throw { status: 400, message: `Falta voto para el cargo: ${pos.name}` }
     }
   }
 
-  // Registrar voto
-  const { data: vote, error: voteError } = await supabase
-    .from('vote')
-    .insert({
-      election_id: electionId,
-      voter_id: voterId,
-      association_id: isBlank ? null : associationId,
-      is_blank: isBlank
-    })
+  // Verificar candidatos validos
+  for (const vote of votes) {
+    if (!positionIds.has(vote.position_id)) {
+      throw { status: 400, message: 'Posicion no pertenece a esta eleccion' }
+    }
+
+    if (!vote.is_blank && vote.candidate_in_position_id) {
+      const { data: cip } = await supabase
+        .from('candidate_in_position')
+        .select('candidate_in_position_id')
+        .eq('candidate_in_position_id', vote.candidate_in_position_id)
+        .eq('position_id', vote.position_id)
+        .single()
+
+      if (!cip) {
+        throw { status: 400, message: 'Candidato no valido para esta posicion' }
+      }
+    }
+  }
+
+  // Crear boleta anonima
+  const { data: ballot, error: ballotError } = await supabase
+    .from('ballot')
+    .insert({ election_id: electionId })
     .select()
     .single()
 
-  if (voteError) {
-    if (voteError.code === '23505') {
-      throw { status: 400, message: 'Ya has emitido tu voto' }
-    }
-    throw new Error(voteError.message)
+  if (ballotError) throw new Error(ballotError.message)
+
+  // Crear votos por cargo
+  const ballotVotes = votes.map(v => ({
+    ballot_id: ballot.ballot_id,
+    position_id: v.position_id,
+    candidate_in_position_id: v.is_blank ? null : v.candidate_in_position_id,
+    is_blank: v.is_blank || false
+  }))
+
+  const { error: votesError } = await supabase
+    .from('ballot_vote')
+    .insert(ballotVotes)
+
+  if (votesError) {
+    // Rollback boleta
+    await supabase.from('ballot').delete().eq('ballot_id', ballot.ballot_id)
+    throw new Error(votesError.message)
   }
 
   // Marcar votante como que ya voto
-  await supabase
-    .from('voter')
-    .update({ has_voted: true })
-    .eq('id', voterId)
+  const { error: updateError } = await supabase
+    .from('election_voter')
+    .update({ has_voted: true, voted_at: new Date().toISOString() })
+    .eq('election_voter_id', ev.election_voter_id)
 
-  return { message: 'Voto registrado exitosamente', vote_id: vote.id }
+  if (updateError) throw new Error(updateError.message)
+
+  return { message: 'Voto registrado exitosamente', ballot_id: ballot.ballot_id }
 }
 
-async function getVoterStatus(voterId, electionId) {
-  const { data: voter, error } = await supabase
-    .from('voter')
-    .select('id, full_name, has_voted')
-    .eq('id', voterId)
-    .eq('election_id', electionId)
+async function getVoterStatus(electionId, authUserId) {
+  const { data: voter } = await supabase
+    .from('voter_profile')
+    .select('voter_id, full_name')
+    .eq('auth_user_id', authUserId)
     .single()
 
-  if (error) throw { status: 404, message: 'Votante no encontrado' }
-  return voter
-}
+  if (!voter) throw { status: 404, message: 'Votante no encontrado' }
 
-async function getElectionForVoter(electionId) {
-  const { data: election, error } = await supabase
-    .from('election')
-    .select('id, name, description, status')
-    .eq('id', electionId)
-    .eq('status', 'active')
+  const { data: ev } = await supabase
+    .from('election_voter')
+    .select('has_voted, voted_at')
+    .eq('election_id', electionId)
+    .eq('voter_id', voter.voter_id)
     .single()
 
-  if (error) throw { status: 404, message: 'Eleccion no encontrada o no activa' }
-
-  const { data: associations } = await supabase
-    .from('association')
-    .select('id, name, photo_url, career:career_id(id, name), candidates:candidate(id, full_name, photo_url, role)')
-    .eq('election_id', electionId)
-    .order('name')
-
-  return { election, associations }
+  return {
+    voter_id: voter.voter_id,
+    full_name: voter.full_name,
+    has_voted: ev ? ev.has_voted : false,
+    voted_at: ev ? ev.voted_at : null
+  }
 }
 
-module.exports = { castVote, getVoterStatus, getElectionForVoter }
+module.exports = { getElectionForVoter, getElectionBallot, castVote, getVoterStatus }

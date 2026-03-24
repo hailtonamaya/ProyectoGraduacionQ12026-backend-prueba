@@ -3,7 +3,8 @@ const { success, created, error } = require('../utils/responseHelper')
 
 async function getAll(req, res, next) {
   try {
-    const data = await candidateService.getAllByAssociation(req.params.associationId)
+    const { organization_id, search } = req.query
+    const data = await candidateService.getAll({ organization_id, search })
     return success(res, data)
   } catch (err) {
     next(err)
@@ -22,7 +23,7 @@ async function getById(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const data = await candidateService.create(req.params.associationId, req.body)
+    const data = await candidateService.create(req.body)
     return created(res, data)
   } catch (err) {
     next(err)
@@ -31,7 +32,7 @@ async function create(req, res, next) {
 
 async function bulkCreate(req, res, next) {
   try {
-    const data = await candidateService.bulkCreate(req.params.associationId, req.body.candidates)
+    const data = await candidateService.bulkCreate(req.body.candidates)
     return created(res, data, 'Candidatos importados')
   } catch (err) {
     next(err)

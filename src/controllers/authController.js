@@ -14,8 +14,8 @@ async function loginAdmin(req, res, next) {
 
 async function loginVoter(req, res, next) {
   try {
-    const { email, voting_code } = req.body
-    const result = await authService.loginVoter(email, voting_code)
+    const { email, password } = req.body
+    const result = await authService.loginVoter(email, password)
     return success(res, result, 'Login exitoso')
   } catch (err) {
     if (err.status) return error(res, err.message, err.status)
@@ -25,16 +25,17 @@ async function loginVoter(req, res, next) {
 
 async function getProfile(req, res, next) {
   try {
-    const data = await authService.getProfile(req.user.id)
+    const data = await authService.getAdminProfile(req.user.id)
     return success(res, data)
   } catch (err) {
+    if (err.status) return error(res, err.message, err.status)
     next(err)
   }
 }
 
 async function updateProfile(req, res, next) {
   try {
-    const data = await authService.updateProfile(req.user.id, req.body)
+    const data = await authService.updateAdminProfile(req.user.id, req.body)
     return success(res, data, 'Perfil actualizado')
   } catch (err) {
     next(err)

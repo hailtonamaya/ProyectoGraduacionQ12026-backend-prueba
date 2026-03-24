@@ -14,13 +14,13 @@ async function loginAdmin(email, password) {
     throw { status: 401, message: 'Credenciales invalidas' }
   }
 
-  const validPassword = await bcrypt.compare(password, admin.password_hash)
-  if (!validPassword) {
+  const valid = await bcrypt.compare(password, admin.password_hash)
+  if (!valid) {
     throw { status: 401, message: 'Credenciales invalidas' }
   }
 
   const token = jwt.sign(
-    { id: admin.id, email: admin.email, role: admin.role, type: 'admin' },
+    { id: admin.admin_id, email: admin.email, role: admin.role, type: 'admin' },
     process.env.JWT_SECRET,
     { expiresIn: '8h' }
   )
@@ -29,44 +29,50 @@ async function loginAdmin(email, password) {
   return { token, admin: adminData }
 }
 
-async function loginVoter(email, votingCode) {
-  const { data: voter, error } = await supabase
-    .from('voter')
-    .select('*, election!inner(id, name, status)')
-    .eq('email', email)
-    .eq('voting_code', votingCode)
-    .eq('election.status', 'active')
+async function loginVoter(email, password) {
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  })
+
+  if (authError) {
+    throw { status: 401, message: 'Credenciales invalidas' }
+  }
+
+  const { data: voter, error: voterError } = await supabase
+    .from('voter_profile')
+    .select('*, organization:organization_id(organization_id, name, code)')
+    .eq('auth_user_id', authData.user.id)
+    .eq('is_active', true)
     .single()
 
-  if (error || !voter) {
-    throw { status: 401, message: 'Credenciales invalidas o eleccion no activa' }
+  if (voterError || !voter) {
+    throw { status: 401, message: 'Perfil de votante no encontrado o inactivo' }
   }
 
-  if (voter.has_voted) {
-    throw { status: 403, message: 'Ya has emitido tu voto en esta eleccion' }
+  return {
+    token: authData.session.access_token,
+    voter: {
+      voter_id: voter.voter_id,
+      full_name: voter.full_name,
+      institutional_id: voter.institutional_id,
+      organization: voter.organization
+    }
   }
-
-  const token = jwt.sign(
-    { id: voter.id, email: voter.email, election_id: voter.election_id, type: 'voter' },
-    process.env.JWT_SECRET,
-    { expiresIn: '1h' }
-  )
-
-  return { token, voter: { id: voter.id, full_name: voter.full_name, election: voter.election } }
 }
 
-async function getProfile(adminId) {
+async function getAdminProfile(adminId) {
   const { data, error } = await supabase
     .from('admin')
-    .select('id, email, full_name, role, is_active, created_at')
-    .eq('id', adminId)
+    .select('admin_id, email, full_name, role, is_active, created_at')
+    .eq('admin_id', adminId)
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) throw { status: 404, message: 'Administrador no encontrado' }
   return data
 }
 
-async function updateProfile(adminId, updates) {
+async function updateAdminProfile(adminId, updates) {
   const updateData = { updated_at: new Date().toISOString() }
   if (updates.full_name) updateData.full_name = updates.full_name
   if (updates.email) updateData.email = updates.email
@@ -74,8 +80,8 @@ async function updateProfile(adminId, updates) {
   const { data, error } = await supabase
     .from('admin')
     .update(updateData)
-    .eq('id', adminId)
-    .select('id, email, full_name, role, is_active, created_at')
+    .eq('admin_id', adminId)
+    .select('admin_id, email, full_name, role, is_active, created_at')
     .single()
 
   if (error) throw new Error(error.message)
@@ -86,7 +92,7 @@ async function changePassword(adminId, currentPassword, newPassword) {
   const { data: admin, error: fetchError } = await supabase
     .from('admin')
     .select('password_hash')
-    .eq('id', adminId)
+    .eq('admin_id', adminId)
     .single()
 
   if (fetchError) throw new Error(fetchError.message)
@@ -100,10 +106,10 @@ async function changePassword(adminId, currentPassword, newPassword) {
   const { error } = await supabase
     .from('admin')
     .update({ password_hash, updated_at: new Date().toISOString() })
-    .eq('id', adminId)
+    .eq('admin_id', adminId)
 
   if (error) throw new Error(error.message)
   return true
 }
 
-module.exports = { loginAdmin, loginVoter, getProfile, updateProfile, changePassword }
+module.exports = { loginAdmin, loginVoter, getAdminProfile, updateAdminProfile, changePassword }
