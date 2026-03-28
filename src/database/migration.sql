@@ -53,7 +53,6 @@ CREATE TABLE IF NOT EXISTS election (
   start_at        TIMESTAMPTZ NOT NULL,
   end_at          TIMESTAMPTZ NOT NULL,
   organization_id UUID NOT NULL REFERENCES organization(organization_id),
-  created_by      UUID REFERENCES admin(admin_id),
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT chk_dates CHECK (end_at > start_at)
 );

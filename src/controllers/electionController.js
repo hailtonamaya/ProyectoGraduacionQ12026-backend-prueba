@@ -23,7 +23,7 @@ async function getById(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const data = await electionService.create({ ...req.body, created_by: req.user.id })
+    const data = await electionService.create(req.body)
     return created(res, data)
   } catch (err) {
     next(err)

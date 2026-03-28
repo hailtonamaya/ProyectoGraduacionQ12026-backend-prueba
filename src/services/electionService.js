@@ -3,7 +3,7 @@ const supabase = require('../config/supabase')
 async function getAll({ status, search, organization_id } = {}) {
   let query = supabase
     .from('election')
-    .select('*, organization:organization_id(organization_id, name, code), admin:created_by(admin_id, full_name)')
+    .select('*, organization:organization_id(organization_id, name, code)')
     .order('created_at', { ascending: false })
 
   if (status) query = query.eq('status', status)
@@ -18,7 +18,7 @@ async function getAll({ status, search, organization_id } = {}) {
 async function getById(id) {
   const { data, error } = await supabase
     .from('election')
-    .select('*, organization:organization_id(organization_id, name, code), admin:created_by(admin_id, full_name)')
+    .select('*, organization:organization_id(organization_id, name, code)')
     .eq('election_id', id)
     .single()
 
@@ -26,10 +26,10 @@ async function getById(id) {
   return data
 }
 
-async function create({ title, description, start_at, end_at, organization_id, created_by }) {
+async function create({ title, description, start_at, end_at, organization_id }) {
   const { data, error } = await supabase
     .from('election')
-    .insert({ title, description, start_at, end_at, organization_id, created_by, status: 'draft' })
+    .insert({ title, description, start_at, end_at, organization_id, status: 'draft' })
     .select('*, organization:organization_id(organization_id, name, code)')
     .single()
 
@@ -81,7 +81,6 @@ async function duplicate(id) {
       start_at: original.start_at,
       end_at: original.end_at,
       organization_id: original.organization_id,
-      created_by: original.created_by,
       status: 'draft'
     })
     .select('*, organization:organization_id(organization_id, name, code)')
