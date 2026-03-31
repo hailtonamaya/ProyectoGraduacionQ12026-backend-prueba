@@ -1,7 +1,7 @@
-const supabase = require('../config/supabase')
+const { supabase, supabaseAdmin } = require('../config/supabase')
 
 async function getAll({ status, search, organization_id } = {}) {
-  let query = supabase
+  let query = supabaseAdmin
     .from('election')
     .select('*, organization:organization_id(organization_id, name, code)')
     .order('created_at', { ascending: false })
@@ -16,7 +16,7 @@ async function getAll({ status, search, organization_id } = {}) {
 }
 
 async function getById(id) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('election')
     .select('*, organization:organization_id(organization_id, name, code)')
     .eq('election_id', id)
@@ -27,7 +27,7 @@ async function getById(id) {
 }
 
 async function create({ title, description, start_at, end_at, organization_id }) {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('election')
     .insert({ title, description, start_at, end_at, organization_id, status: 'draft' })
     .select('*, organization:organization_id(organization_id, name, code)')
@@ -44,16 +44,15 @@ async function update(id, updates) {
     if (updates[field] !== undefined) updateData[field] = updates[field]
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('election')
     .update(updateData)
     .eq('election_id', id)
     .select('*, organization:organization_id(organization_id, name, code)')
-    .single()
 
   if (error) throw new Error(error.message)
-  if (!data) throw { status: 404, message: 'Eleccion no encontrada' }
-  return data
+  if (!data || data.length === 0) throw { status: 404, message: 'Eleccion no encontrada' }
+  return data[0]
 }
 
 async function remove(id) {
@@ -62,7 +61,7 @@ async function remove(id) {
     throw { status: 400, message: 'No se puede eliminar una eleccion abierta' }
   }
 
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from('election')
     .delete()
     .eq('election_id', id)
@@ -73,7 +72,7 @@ async function remove(id) {
 
 async function duplicate(id) {
   const original = await getById(id)
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('election')
     .insert({
       title: `${original.title} (copia)`,
@@ -107,15 +106,15 @@ async function changeStatus(id, newStatus) {
     await validateElectionReady(id)
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('election')
     .update({ status: newStatus })
     .eq('election_id', id)
     .select('*, organization:organization_id(organization_id, name, code)')
-    .single()
 
   if (error) throw new Error(error.message)
-  return data
+  if (!data || data.length === 0) throw { status: 404, message: 'Eleccion no encontrada' }
+  return data[0]
 }
 
 async function validateElectionReady(electionId) {

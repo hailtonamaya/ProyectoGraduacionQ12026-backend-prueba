@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
-const supabase = require('../config/supabase')
+const { supabase } = require('../config/supabase')
 
 async function loginAdmin(email, password) {
   const { data: admin, error } = await supabase

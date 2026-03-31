@@ -1,4 +1,4 @@
-const supabase = require('../config/supabase')
+const { supabase, supabaseAdmin } = require('../config/supabase')
 
 async function getElectionForVoter(authUserId) {
   // Obtener perfil del votante
@@ -145,8 +145,8 @@ async function castVote(electionId, authUserId, votes) {
     }
   }
 
-  // Crear boleta anonima
-  const { data: ballot, error: ballotError } = await supabase
+  // Crear boleta anonima (usa supabaseAdmin para bypasear RLS)
+  const { data: ballot, error: ballotError } = await supabaseAdmin
     .from('ballot')
     .insert({ election_id: electionId })
     .select()
@@ -162,18 +162,17 @@ async function castVote(electionId, authUserId, votes) {
     is_blank: v.is_blank || false
   }))
 
-  const { error: votesError } = await supabase
+  const { error: votesError } = await supabaseAdmin
     .from('ballot_vote')
     .insert(ballotVotes)
 
   if (votesError) {
-    // Rollback boleta
-    await supabase.from('ballot').delete().eq('ballot_id', ballot.ballot_id)
+    await supabaseAdmin.from('ballot').delete().eq('ballot_id', ballot.ballot_id)
     throw new Error(votesError.message)
   }
 
   // Marcar votante como que ya voto
-  const { error: updateError } = await supabase
+  const { error: updateError } = await supabaseAdmin
     .from('election_voter')
     .update({ has_voted: true, voted_at: new Date().toISOString() })
     .eq('election_voter_id', ev.election_voter_id)

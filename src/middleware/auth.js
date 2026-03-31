@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken')
-const supabase = require('../config/supabase')
+const { supabase } = require('../config/supabase')
 const { unauthorized } = require('../utils/responseHelper')
 
 // Middleware para admins (JWT custom)

@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs')
-const supabase = require('../config/supabase')
+const { supabase } = require('../config/supabase')
 
 async function getAll() {
   const { data, error } = await supabase
