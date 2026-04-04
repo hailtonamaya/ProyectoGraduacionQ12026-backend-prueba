@@ -53,4 +53,26 @@ async function changePassword(req, res, next) {
   }
 }
 
-module.exports = { loginAdmin, loginVoter, getProfile, updateProfile, changePassword }
+async function sendOtp(req, res, next) {
+  try {
+    const { email } = req.body
+    const result = await authService.sendVoterOtp(email)
+    return success(res, result, 'Codigo enviado al correo')
+  } catch (err) {
+    if (err.status) return error(res, err.message, err.status)
+    next(err)
+  }
+}
+
+async function verifyOtp(req, res, next) {
+  try {
+    const { email, token } = req.body
+    const result = await authService.verifyVoterOtp(email, token)
+    return success(res, result, 'Login exitoso')
+  } catch (err) {
+    if (err.status) return error(res, err.message, err.status)
+    next(err)
+  }
+}
+
+module.exports = { loginAdmin, loginVoter, getProfile, updateProfile, changePassword, sendOtp, verifyOtp }

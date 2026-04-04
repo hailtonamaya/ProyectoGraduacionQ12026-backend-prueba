@@ -112,4 +112,64 @@ async function changePassword(adminId, currentPassword, newPassword) {
   return true
 }
 
-module.exports = { loginAdmin, loginVoter, getAdminProfile, updateAdminProfile, changePassword }
+async function sendVoterOtp(email) {
+  // Validar dominio institucional
+  if (!email.endsWith('@unitec.edu')) {
+    throw { status: 400, message: 'Solo se permite correo institucional @unitec.edu' }
+  }
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      shouldCreateUser: true
+    }
+  })
+
+  if (error) {
+    throw { status: 500, message: error.message }
+  }
+
+  return { email }
+}
+
+async function verifyVoterOtp(email, token) {
+  const { data: authData, error: authError } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: 'email'
+  })
+
+  if (authError) {
+    throw { status: 401, message: 'Codigo invalido o expirado' }
+  }
+
+  // Buscar perfil de votante existente
+  const { data: voter } = await supabase
+    .from('voter_profile')
+    .select('*, organization:organization_id(organization_id, name, code)')
+    .eq('auth_user_id', authData.user.id)
+    .eq('is_active', true)
+    .single()
+
+  const result = {
+    token: authData.session.access_token,
+    auth_user_id: authData.user.id,
+    email: authData.user.email
+  }
+
+  if (voter) {
+    result.voter = {
+      voter_id: voter.voter_id,
+      full_name: voter.full_name,
+      institutional_id: voter.institutional_id,
+      organization: voter.organization
+    }
+    result.has_profile = true
+  } else {
+    result.has_profile = false
+  }
+
+  return result
+}
+
+module.exports = { loginAdmin, loginVoter, getAdminProfile, updateAdminProfile, changePassword, sendVoterOtp, verifyVoterOtp }

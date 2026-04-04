@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UNITEC - Autenticacion Facial con IA</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+  <style>
+    :root {
+      --azul-uno: #06065C;
+      --azul-dos: #0F49B6;
+      --azul-tres: #03AED2;
+      --azul-cuatro: #47C8F0;
+      --negro: #010114;
+      --rojo: #C3161C;
+      --gris-claro: #EDEDED;
+      --gris-medio: #9D9D9C;
+      --blanco: #FFFFFF;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: var(--negro);
+      color: var(--blanco);
+      min-height: 100vh;
+    }
+
+    /* ─── Header ─────────────────────────────── */
+
+    .header {
+      background: var(--azul-uno);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 3px solid var(--azul-tres);
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .unitec-logo {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      background: linear-gradient(90deg, var(--azul-tres), var(--azul-cuatro));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header-divider {
+      width: 1px;
+      height: 32px;
+      background: rgba(255,255,255,0.15);
+    }
+
+    .header-title {
+      font-size: 15px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.85);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .ia-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, var(--azul-dos), var(--azul-tres));
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--blanco);
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    .status-badge {
+      padding: 5px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-loading {
+      background: rgba(255,217,61,0.15);
+      color: #ffd93d;
+      border: 1px solid rgba(255,217,61,0.3);
+    }
+
+    .status-ready {
+      background: rgba(4,174,210,0.15);
+      color: var(--azul-cuatro);
+      border: 1px solid rgba(4,174,210,0.3);
+    }
+
+    .status-error {
+      background: rgba(195,22,28,0.15);
+      color: #f87171;
+      border: 1px solid rgba(195,22,28,0.3);
+    }
+
+    /* ─── Main Layout ────────────────────────── */
+
+    .main {
+      display: flex;
+      gap: 24px;
+      padding: 24px 32px;
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    /* ─── Camera Panel ───────────────────────── */
+
+    .camera-panel {
+      flex: 1;
+      background: var(--azul-uno);
+      border-radius: 24px;
+      padding: 20px;
+      border: 1px solid rgba(15,73,182,0.3);
+    }
+
+    .camera-container {
+      position: relative;
+      width: 100%;
+      border-radius: 16px;
+      overflow: hidden;
+      background: var(--negro);
+      aspect-ratio: 4/3;
+      border: 2px solid rgba(3,174,210,0.2);
+    }
+
+    .camera-container video,
+    .camera-container canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .camera-info {
+      margin-top: 14px;
+      display: flex;
+      gap: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--gris-medio);
+    }
+
+    .camera-info .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .dot-green { background: var(--azul-tres); box-shadow: 0 0 6px var(--azul-tres); }
+    .dot-red { background: var(--rojo); box-shadow: 0 0 6px var(--rojo); }
+    .dot-yellow { background: #ffd93d; box-shadow: 0 0 6px #ffd93d; }
+
+    /* ─── Console ─────────────────────────────── */
+
+    .console-section {
+      margin-top: 16px;
+    }
+
+    .console-section h3 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--azul-cuatro);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .log {
+      background: var(--negro);
+      border: 1px solid rgba(15,73,182,0.25);
+      border-radius: 12px;
+      padding: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      max-height: 130px;
+      overflow-y: auto;
+      color: var(--gris-medio);
+    }
+
+    .log::-webkit-scrollbar { width: 4px; }
+    .log::-webkit-scrollbar-track { background: transparent; }
+    .log::-webkit-scrollbar-thumb { background: var(--azul-dos); border-radius: 2px; }
+
+    .log .entry { margin-bottom: 3px; }
+    .log .time { color: var(--azul-tres); }
+    .log .ok { color: var(--azul-cuatro); }
+    .log .err { color: var(--rojo); }
+
+    /* ─── Control Panel ──────────────────────── */
+
+    .control-panel {
+      width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ─── Tabs ────────────────────────────────── */
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      background: var(--azul-uno);
+      padding: 6px;
+      border-radius: 16px;
+      border: 1px solid rgba(15,73,182,0.3);
+    }
+
+    .tab {
+      flex: 1;
+      padding: 11px 8px;
+      text-align: center;
+      border-radius: 12px;
+      cursor: pointer;
+      font-family: 'Poppins', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.25s ease;
+      border: none;
+      background: transparent;
+      color: var(--gris-medio);
+    }
+
+    .tab.active {
+      background: linear-gradient(135deg, var(--azul-dos), var(--azul-tres));
+      color: var(--blanco);
+      box-shadow: 0 4px 15px rgba(15,73,182,0.4);
+    }
+
+    .tab:hover:not(.active) {
+      background: rgba(15,73,182,0.2);
+      color: var(--blanco);
+    }
+
+    /* ─── Cards ───────────────────────────────── */
+
+    .card {
+      background: var(--azul-uno);
+      border-radius: 24px;
+      padding: 24px;
+      border: 1px solid rgba(15,73,182,0.3);
+    }
+
+    .card h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: var(--blanco);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--gris-medio);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(15,73,182,0.3);
+      background: var(--negro);
+      color: var(--blanco);
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      font-weight: 400;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .form-group input::placeholder {
+      color: rgba(157,157,156,0.5);
+    }
+
+    .form-group input:focus {
+      border-color: var(--azul-tres);
+      box-shadow: 0 0 0 3px rgba(3,174,210,0.15);
+    }
+
+    /* ─── Buttons ─────────────────────────────── */
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      margin-top: 8px;
+      letter-spacing: 0.3px;
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--azul-dos), var(--azul-tres));
+      color: var(--blanco);
+      box-shadow: 0 4px 15px rgba(15,73,182,0.3);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      box-shadow: 0 6px 25px rgba(15,73,182,0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, var(--azul-tres), var(--azul-cuatro));
+      color: var(--blanco);
+      box-shadow: 0 4px 15px rgba(3,174,210,0.3);
+    }
+
+    .btn-success:hover:not(:disabled) {
+      box-shadow: 0 6px 25px rgba(3,174,210,0.5);
+      transform: translateY(-1px);
+    }
+
+    /* ─── Result Card ─────────────────────────── */
+
+    .result-card {
+      background: var(--azul-uno);
+      border-radius: 24px;
+      padding: 24px;
+      border: 1px solid rgba(15,73,182,0.3);
+    }
+
+    .result-card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--azul-cuatro);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+
+    .result-match {
+      text-align: center;
+      padding: 20px;
+      border-radius: 16px;
+      margin-bottom: 16px;
+    }
+
+    .result-match.success {
+      background: linear-gradient(135deg, rgba(3,174,210,0.15), rgba(71,200,240,0.1));
+      border: 1px solid rgba(3,174,210,0.4);
+    }
+
+    .result-match.fail {
+      background: linear-gradient(135deg, rgba(195,22,28,0.15), rgba(195,22,28,0.05));
+      border: 1px solid rgba(195,22,28,0.4);
+    }
+
+    .result-match .icon { font-size: 36px; margin-bottom: 6px; }
+    .result-match .label { font-size: 16px; font-weight: 700; }
+    .result-match.success .label { color: var(--azul-cuatro); }
+    .result-match.fail .label { color: #f87171; }
+
+    .result-details {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+    }
+
+    .result-row .key { color: var(--gris-medio); font-weight: 400; }
+    .result-row .val { color: var(--blanco); font-weight: 600; }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(15,73,182,0.2);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .progress-bar .fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.6s ease;
+    }
+
+    .fill-success { background: linear-gradient(90deg, var(--azul-dos), var(--azul-tres)); }
+    .fill-fail { background: var(--rojo); }
+
+    /* ─── Utilities ───────────────────────────── */
+
+    .hidden { display: none; }
+
+    .capture-flash {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(135deg, rgba(3,174,210,0.3), rgba(15,73,182,0.2));
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      z-index: 10;
+    }
+
+    .capture-flash.active { opacity: 1; }
+
+    /* ─── Gradient Accent Line ────────────────── */
+
+    .gradient-line {
+      height: 3px;
+      background: linear-gradient(90deg, var(--azul-uno), var(--azul-dos), var(--azul-tres));
+      border-radius: 2px;
+      margin-bottom: 16px;
+    }
+
+    /* ─── Footer ──────────────────────────────── */
+
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 12px;
+      color: var(--gris-medio);
+      font-weight: 400;
+    }
+
+    .footer span {
+      background: linear-gradient(90deg, var(--azul-dos), var(--azul-tres));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div class="unitec-logo">UNITEC</div>
+    <div class="header-divider"></div>
+    <div class="header-title">Autenticacion Facial con Inteligencia Artificial</div>
+  </div>
+  <div class="header-right">
+    <span class="ia-badge">IA: SSD MobileNet + FaceNet</span>
+    <span id="modelStatus" class="status-badge status-loading">Cargando modelos...</span>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Panel Camara -->
+  <div class="camera-panel">
+    <div class="camera-container">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="overlay"></canvas>
+      <div id="flash" class="capture-flash"></div>
+    </div>
+    <div class="camera-info">
+      <span><span class="dot dot-yellow" id="camDot"></span><span id="camLabel">Iniciando camara...</span></span>
+      <span><span class="dot dot-yellow" id="faceDot"></span><span id="faceLabel">Sin rostro</span></span>
+    </div>
+
+    <div class="console-section">
+      <h3>Consola de IA</h3>
+      <div id="log" class="log">
+        <div class="entry"><span class="time">[sistema]</span> Inicializando face-api.js...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Panel Control -->
+  <div class="control-panel">
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('register')" id="tabRegister">Registrar Rostro</div>
+      <div class="tab" onclick="switchTab('verify')" id="tabVerify">Verificar / Login</div>
+    </div>
+
+    <!-- Registro -->
+    <div class="card" id="panelRegister">
+      <div class="gradient-line"></div>
+      <h3>Registrar nuevo rostro</h3>
+      <div class="form-group">
+        <label>Correo electronico</label>
+        <input type="email" id="regEmail" placeholder="usuario@unitec.edu">
+      </div>
+      <div class="form-group">
+        <label>Nombre completo</label>
+        <input type="text" id="regName" placeholder="Nombre del estudiante">
+      </div>
+      <button class="btn btn-primary" id="btnRegister" onclick="registerFace()" disabled>
+        Capturar y Registrar Rostro
+      </button>
+    </div>
+
+    <!-- Verificacion -->
+    <div class="card hidden" id="panelVerify">
+      <div class="gradient-line"></div>
+      <h3>Login con reconocimiento facial</h3>
+      <div class="form-group">
+        <label>Correo electronico registrado</label>
+        <input type="email" id="verEmail" placeholder="usuario@unitec.edu">
+      </div>
+      <button class="btn btn-success" id="btnVerify" onclick="verifyFace()" disabled>
+        Capturar y Verificar Rostro
+      </button>
+    </div>
+
+    <!-- Resultado -->
+    <div class="result-card hidden" id="resultPanel">
+      <h3>Resultado</h3>
+      <div id="resultContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  Proyecto de Graduacion Q1 2026 &mdash; <span>UNITEC Honduras</span> &mdash; Plataforma de Votaciones Estudiantiles
+</div>
+
+<script>
+const API_BASE = window.location.origin + '/api/ia'
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model'
+
+const video = document.getElementById('video')
+const overlay = document.getElementById('overlay')
+const log = document.getElementById('log')
+
+let modelsLoaded = false
+let currentDetection = null
+
+// ─── Utilidades ───────────────────────────────────────
+
+function addLog(msg, type = '') {
+  const time = new Date().toLocaleTimeString('es-GT', { hour12: false })
+  const cls = type === 'ok' ? 'ok' : type === 'err' ? 'err' : ''
+  log.innerHTML += `<div class="entry"><span class="time">[${time}]</span> <span class="${cls}">${msg}</span></div>`
+  log.scrollTop = log.scrollHeight
+}
+
+function switchTab(tab) {
+  document.getElementById('tabRegister').classList.toggle('active', tab === 'register')
+  document.getElementById('tabVerify').classList.toggle('active', tab === 'verify')
+  document.getElementById('panelRegister').classList.toggle('hidden', tab !== 'register')
+  document.getElementById('panelVerify').classList.toggle('hidden', tab !== 'verify')
+  document.getElementById('resultPanel').classList.add('hidden')
+}
+
+function flash() {
+  const el = document.getElementById('flash')
+  el.classList.add('active')
+  setTimeout(() => el.classList.remove('active'), 200)
+}
+
+// ─── Inicializacion ───────────────────────────────────
+
+async function init() {
+  try {
+    addLog('Cargando modelo SSD MobileNet v1 (deteccion de rostros)...')
+    await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL)
+    addLog('SSD MobileNet v1 cargado', 'ok')
+
+    addLog('Cargando modelo Face Landmarks 68 puntos...')
+    await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+    addLog('Face Landmarks 68 cargado', 'ok')
+
+    addLog('Cargando modelo FaceNet (descriptor 128D)...')
+    await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+    addLog('FaceNet cargado', 'ok')
+
+    modelsLoaded = true
+    document.getElementById('modelStatus').className = 'status-badge status-ready'
+    document.getElementById('modelStatus').textContent = 'Modelos listos'
+    addLog('Todos los modelos de IA cargados correctamente', 'ok')
+
+    document.getElementById('btnRegister').disabled = false
+    document.getElementById('btnVerify').disabled = false
+
+    await startCamera()
+    detectLoop()
+  } catch (err) {
+    addLog('Error al cargar modelos: ' + err.message, 'err')
+    document.getElementById('modelStatus').className = 'status-badge status-error'
+    document.getElementById('modelStatus').textContent = 'Error en modelos'
+  }
+}
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480, facingMode: 'user' }
+    })
+    video.srcObject = stream
+    await new Promise(r => video.onloadedmetadata = r)
+    overlay.width = video.videoWidth
+    overlay.height = video.videoHeight
+    document.getElementById('camDot').className = 'dot dot-green'
+    document.getElementById('camLabel').textContent = 'Camara activa'
+    addLog('Camara iniciada (' + video.videoWidth + 'x' + video.videoHeight + ')', 'ok')
+  } catch (err) {
+    document.getElementById('camDot').className = 'dot dot-red'
+    document.getElementById('camLabel').textContent = 'Sin acceso a camara'
+    addLog('Error de camara: ' + err.message, 'err')
+  }
+}
+
+// ─── Deteccion en tiempo real ─────────────────────────
+
+async function detectLoop() {
+  if (!modelsLoaded) return
+
+  const detection = await faceapi
+    .detectSingleFace(video)
+    .withFaceLandmarks()
+    .withFaceDescriptor()
+
+  const ctx = overlay.getContext('2d')
+  ctx.clearRect(0, 0, overlay.width, overlay.height)
+
+  if (detection) {
+    currentDetection = detection
+    document.getElementById('faceDot').className = 'dot dot-green'
+    document.getElementById('faceLabel').textContent = 'Rostro detectado'
+
+    // Bounding box con estilo UNITEC
+    const box = detection.detection.box
+    ctx.strokeStyle = '#03AED2'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.roundRect(box.x, box.y, box.width, box.height, 8)
+    ctx.stroke()
+
+    // Corner accents
+    const cornerLen = 18
+    ctx.strokeStyle = '#0F49B6'
+    ctx.lineWidth = 3
+    // Top-left
+    ctx.beginPath()
+    ctx.moveTo(box.x, box.y + cornerLen); ctx.lineTo(box.x, box.y); ctx.lineTo(box.x + cornerLen, box.y)
+    ctx.stroke()
+    // Top-right
+    ctx.beginPath()
+    ctx.moveTo(box.x + box.width - cornerLen, box.y); ctx.lineTo(box.x + box.width, box.y); ctx.lineTo(box.x + box.width, box.y + cornerLen)
+    ctx.stroke()
+    // Bottom-left
+    ctx.beginPath()
+    ctx.moveTo(box.x, box.y + box.height - cornerLen); ctx.lineTo(box.x, box.y + box.height); ctx.lineTo(box.x + cornerLen, box.y + box.height)
+    ctx.stroke()
+    // Bottom-right
+    ctx.beginPath()
+    ctx.moveTo(box.x + box.width - cornerLen, box.y + box.height); ctx.lineTo(box.x + box.width, box.y + box.height); ctx.lineTo(box.x + box.width, box.y + box.height - cornerLen)
+    ctx.stroke()
+
+    // Landmarks (68 puntos)
+    const landmarks = detection.landmarks.positions
+    ctx.fillStyle = '#47C8F0'
+    for (const pt of landmarks) {
+      ctx.beginPath()
+      ctx.arc(pt.x, pt.y, 1.5, 0, 2 * Math.PI)
+      ctx.fill()
+    }
+
+    // Score
+    const score = (detection.detection.score * 100).toFixed(1)
+    ctx.font = '600 13px Poppins'
+    ctx.fillStyle = 'rgba(1,1,20,0.6)'
+    const textW = ctx.measureText(score + '%').width
+    ctx.fillRect(box.x, box.y - 24, textW + 12, 20)
+    ctx.fillStyle = '#47C8F0'
+    ctx.fillText(score + '%', box.x + 6, box.y - 9)
+  } else {
+    currentDetection = null
+    document.getElementById('faceDot').className = 'dot dot-yellow'
+    document.getElementById('faceLabel').textContent = 'Sin rostro'
+  }
+
+  requestAnimationFrame(detectLoop)
+}
+
+// ─── Capturar descriptor ──────────────────────────────
+
+async function captureDescriptor() {
+  if (!currentDetection) {
+    alert('No se detecta un rostro. Coloca tu rostro frente a la camara.')
+    return null
+  }
+
+  flash()
+  addLog('Capturando descriptor facial (128 dimensiones)...')
+
+  const descriptors = []
+  for (let i = 0; i < 3; i++) {
+    const det = await faceapi
+      .detectSingleFace(video)
+      .withFaceLandmarks()
+      .withFaceDescriptor()
+    if (det) descriptors.push(Array.from(det.descriptor))
+    await new Promise(r => setTimeout(r, 100))
+  }
+
+  if (descriptors.length === 0) {
+    addLog('No se pudo capturar descriptor', 'err')
+    return null
+  }
+
+  // Promediar descriptores para reducir ruido
+  const avg = new Array(128).fill(0)
+  for (const d of descriptors) {
+    for (let i = 0; i < 128; i++) avg[i] += d[i]
+  }
+  for (let i = 0; i < 128; i++) avg[i] /= descriptors.length
+
+  addLog(`Descriptor promediado de ${descriptors.length} muestras`, 'ok')
+  addLog(`Primeros 5 valores: [${avg.slice(0, 5).map(v => v.toFixed(4)).join(', ')}...]`, 'ok')
+
+  return avg
+}
+
+// ─── Registrar Rostro ─────────────────────────────────
+
+async function registerFace() {
+  const email = document.getElementById('regEmail').value.trim()
+  const fullName = document.getElementById('regName').value.trim()
+
+  if (!email || !fullName) {
+    alert('Completa email y nombre')
+    return
+  }
+
+  addLog(`Iniciando registro facial para: ${email}`)
+  const descriptor = await captureDescriptor()
+  if (!descriptor) return
+
+  try {
+    addLog('Enviando descriptor al servidor...')
+    const res = await fetch(API_BASE + '/face/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, full_name: fullName, descriptor })
+    })
+
+    const data = await res.json()
+
+    if (data.success) {
+      addLog('Rostro registrado exitosamente en la base de datos', 'ok')
+      showResult({ type: 'register', success: true, data: data.data })
+    } else {
+      addLog('Error del servidor: ' + data.message, 'err')
+      showResult({ type: 'register', success: false, message: data.message })
+    }
+  } catch (err) {
+    addLog('Error de red: ' + err.message, 'err')
+  }
+}
+
+// ─── Verificar Rostro ─────────────────────────────────
+
+async function verifyFace() {
+  const email = document.getElementById('verEmail').value.trim()
+  if (!email) {
+    alert('Ingresa el email registrado')
+    return
+  }
+
+  addLog(`Iniciando verificacion facial para: ${email}`)
+  const descriptor = await captureDescriptor()
+  if (!descriptor) return
+
+  try {
+    addLog('Enviando descriptor para comparacion...')
+    const res = await fetch(API_BASE + '/face/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, descriptor })
+    })
+
+    const data = await res.json()
+
+    if (data.success) {
+      const r = data.data
+      if (r.match) {
+        addLog(`MATCH - Distancia: ${r.distance} | Confianza: ${r.confidence}%`, 'ok')
+      } else {
+        addLog(`NO MATCH - Distancia: ${r.distance} (umbral: ${r.threshold})`, 'err')
+      }
+      showResult({ type: 'verify', success: true, data: r })
+    } else {
+      addLog('Error: ' + data.message, 'err')
+      showResult({ type: 'verify', success: false, message: data.message })
+    }
+  } catch (err) {
+    addLog('Error de red: ' + err.message, 'err')
+  }
+}
+
+// ─── Mostrar resultado ────────────────────────────────
+
+function showResult(result) {
+  const panel = document.getElementById('resultPanel')
+  const content = document.getElementById('resultContent')
+  panel.classList.remove('hidden')
+
+  if (result.type === 'register') {
+    if (result.success) {
+      content.innerHTML = `
+        <div class="result-match success">
+          <div class="icon">&#10003;</div>
+          <div class="label">Rostro Registrado</div>
+        </div>
+        <div class="result-details">
+          <div class="result-row"><span class="key">Email</span><span class="val">${result.data.email}</span></div>
+          <div class="result-row"><span class="key">Nombre</span><span class="val">${result.data.full_name}</span></div>
+          <div class="result-row"><span class="key">ID</span><span class="val" style="font-size:11px">${result.data.face_id}</span></div>
+        </div>`
+    } else {
+      content.innerHTML = `
+        <div class="result-match fail">
+          <div class="icon">&#10007;</div>
+          <div class="label">Error al registrar</div>
+        </div>
+        <p style="color:#f87171; text-align:center; font-size:13px">${result.message}</p>`
+    }
+    return
+  }
+
+  if (!result.success) {
+    content.innerHTML = `
+      <div class="result-match fail">
+        <div class="icon">&#10007;</div>
+        <div class="label">Error</div>
+      </div>
+      <p style="color:#f87171; text-align:center; font-size:13px">${result.message}</p>`
+    return
+  }
+
+  const d = result.data
+  const fillClass = d.match ? 'fill-success' : 'fill-fail'
+  const barWidth = d.match ? d.confidence : Math.max(5, d.confidence)
+
+  content.innerHTML = `
+    <div class="result-match ${d.match ? 'success' : 'fail'}">
+      <div class="icon">${d.match ? '&#10003;' : '&#10007;'}</div>
+      <div class="label">${d.match ? 'Identidad Verificada' : 'No Coincide'}</div>
+    </div>
+    <div class="result-details">
+      ${d.match ? `<div class="result-row"><span class="key">Nombre</span><span class="val">${d.full_name}</span></div>` : ''}
+      ${d.match ? `<div class="result-row"><span class="key">Email</span><span class="val">${d.email}</span></div>` : ''}
+      <div class="result-row"><span class="key">Distancia euclidiana</span><span class="val">${d.distance}</span></div>
+      <div class="result-row"><span class="key">Umbral</span><span class="val">${d.threshold}</span></div>
+      <div class="result-row"><span class="key">Confianza</span><span class="val">${d.confidence}%</span></div>
+      <div class="progress-bar"><div class="fill ${fillClass}" style="width:${barWidth}%"></div></div>
+    </div>`
+}
+
+// ─── Start ────────────────────────────────────────────
+
+init()
+</script>
+</body>
+</html>
