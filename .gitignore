@@ -4,3 +4,4 @@ dist/*
 logs/*
 resources/*
 workspace/*
+node_modules/
