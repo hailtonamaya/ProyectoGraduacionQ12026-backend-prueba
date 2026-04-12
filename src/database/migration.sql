@@ -1,11 +1,6 @@
--- ============================================================
--- PLATAFORMA DIGITAL PARA VOTACIONES ESTUDIANTILES
--- Compatible con Supabase (PostgreSQL)
--- ============================================================
+-- Esquema de base de datos
 
--- ============================================================
--- 0. ADMINISTRADORES (tabla independiente de auth.users)
--- ============================================================
+-- Administradores
 CREATE TABLE IF NOT EXISTS admin (
   admin_id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email           VARCHAR(255) UNIQUE NOT NULL,
@@ -18,9 +13,7 @@ CREATE TABLE IF NOT EXISTS admin (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ============================================================
--- 1. ORGANIZACIONES / ASOCIACIONES
--- ============================================================
+-- Organizaciones
 CREATE TABLE IF NOT EXISTS organization (
   organization_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name            VARCHAR(150) NOT NULL,
@@ -28,9 +21,7 @@ CREATE TABLE IF NOT EXISTS organization (
   created_at      TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
--- ============================================================
--- 2. PERFILES DE VOTANTE
--- ============================================================
+-- Perfiles de votante
 CREATE TABLE IF NOT EXISTS voter_profile (
   voter_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   auth_user_id      UUID NOT NULL UNIQUE,
@@ -41,9 +32,7 @@ CREATE TABLE IF NOT EXISTS voter_profile (
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ============================================================
--- 3. ELECCIONES
--- ============================================================
+-- Elecciones
 CREATE TABLE IF NOT EXISTS election (
   election_id     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title           VARCHAR(200) NOT NULL,
@@ -57,9 +46,7 @@ CREATE TABLE IF NOT EXISTS election (
   CONSTRAINT chk_dates CHECK (end_at > start_at)
 );
 
--- ============================================================
--- 4. CARGOS (posiciones a elegir dentro de una eleccion)
--- ============================================================
+-- Cargos
 CREATE TABLE IF NOT EXISTS position (
   position_id     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   election_id     UUID NOT NULL REFERENCES election(election_id) ON DELETE CASCADE,
@@ -71,9 +58,7 @@ CREATE TABLE IF NOT EXISTS position (
   CONSTRAINT chk_votes CHECK (max_votes >= min_votes AND min_votes >= 0)
 );
 
--- ============================================================
--- 5. CANDIDATOS
--- ============================================================
+-- Candidatos
 CREATE TABLE IF NOT EXISTS candidate (
   candidate_id    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   full_name       VARCHAR(200) NOT NULL,
@@ -83,9 +68,7 @@ CREATE TABLE IF NOT EXISTS candidate (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ============================================================
--- 6. CANDIDATO EN CARGO (N:M)
--- ============================================================
+-- Candidato en cargo (N:M)
 CREATE TABLE IF NOT EXISTS candidate_in_position (
   candidate_in_position_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   position_id   UUID NOT NULL REFERENCES position(position_id) ON DELETE CASCADE,
@@ -93,9 +76,7 @@ CREATE TABLE IF NOT EXISTS candidate_in_position (
   UNIQUE (position_id, candidate_id)
 );
 
--- ============================================================
--- 7. HABILITACION DE VOTANTE EN ELECCION
--- ============================================================
+-- Habilitacion votante-eleccion
 CREATE TABLE IF NOT EXISTS election_voter (
   election_voter_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   election_id   UUID NOT NULL REFERENCES election(election_id) ON DELETE CASCADE,
@@ -105,18 +86,14 @@ CREATE TABLE IF NOT EXISTS election_voter (
   UNIQUE (election_id, voter_id)
 );
 
--- ============================================================
--- 8. BOLETA (SIN referencia al votante = anonimato)
--- ============================================================
+-- Boleta (sin referencia al votante para anonimato)
 CREATE TABLE IF NOT EXISTS ballot (
   ballot_id     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   election_id   UUID NOT NULL REFERENCES election(election_id) ON DELETE CASCADE,
   submitted_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- ============================================================
--- 9. VOTO POR CARGO
--- ============================================================
+-- Voto por cargo
 CREATE TABLE IF NOT EXISTS ballot_vote (
   ballot_vote_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ballot_id      UUID NOT NULL REFERENCES ballot(ballot_id) ON DELETE CASCADE,
@@ -130,9 +107,7 @@ CREATE TABLE IF NOT EXISTS ballot_vote (
     )
 );
 
--- ============================================================
--- 10. INDICES
--- ============================================================
+-- Indices
 CREATE INDEX IF NOT EXISTS idx_election_status       ON election(status);
 CREATE INDEX IF NOT EXISTS idx_election_org_status   ON election(organization_id, status);
 CREATE INDEX IF NOT EXISTS idx_ballot_vote_position  ON ballot_vote(position_id);
@@ -141,9 +116,7 @@ CREATE INDEX IF NOT EXISTS idx_election_voter_lookup ON election_voter(election_
 CREATE INDEX IF NOT EXISTS idx_ballot_election       ON ballot(election_id);
 CREATE INDEX IF NOT EXISTS idx_cip_position          ON candidate_in_position(position_id);
 
--- ============================================================
--- 11. VISTAS PARA REPORTES
--- ============================================================
+-- Vistas para reportes
 
 CREATE OR REPLACE VIEW v_results_by_position AS
 SELECT
@@ -191,9 +164,7 @@ FROM position p
 JOIN ballot_vote bv ON bv.position_id = p.position_id AND bv.is_blank = TRUE
 GROUP BY p.election_id, p.position_id, p.name;
 
--- ============================================================
--- 12. SEED: Admin master (password: admin123)
--- ============================================================
+-- Seed admin
 INSERT INTO admin (email, password_hash, full_name, role)
 VALUES ('admin@elecciones.edu', '$2b$10$.S4zeivYvFxGCOZqBXTU/eq2.dZNoENOhJdkylVFN2cveHuBBl.Xu', 'Admin Master', 'admin_master')
 ON CONFLICT (email) DO NOTHING;

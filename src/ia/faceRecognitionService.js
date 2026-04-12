@@ -1,10 +1,5 @@
 const { supabase } = require('../config/supabase')
 
-/**
- * Calcula la distancia euclidiana entre dos descriptores faciales.
- * Menor distancia = rostros mas similares.
- * Formula: sqrt(sum((a[i] - b[i])^2))
- */
 function euclideanDistance(desc1, desc2) {
   let sum = 0
   for (let i = 0; i < desc1.length; i++) {
@@ -18,7 +13,6 @@ async function registerFace(email, fullName, descriptor) {
     throw { status: 400, message: 'Descriptor facial invalido (debe ser array de 128 valores)' }
   }
 
-  // Upsert: si ya existe un registro con ese email, lo actualiza
   const { data, error } = await supabase
     .from('face_registration')
     .upsert({
@@ -58,7 +52,6 @@ async function verifyFace(email, descriptor) {
   const distance = euclideanDistance(descriptor, storedDescriptor)
   const threshold = 0.6
   const match = distance < threshold
-  // Confianza: 100% cuando distancia=0, 0% cuando distancia>=threshold
   const confidence = Math.max(0, Math.min(100, ((threshold - distance) / threshold) * 100))
 
   return {

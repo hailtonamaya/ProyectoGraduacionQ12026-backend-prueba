@@ -1,7 +1,5 @@
 const { supabase } = require('../config/supabase')
 
-// --- Voter Profiles ---
-
 async function getAllProfiles({ organization_id, search } = {}) {
   let query = supabase
     .from('voter_profile')
@@ -31,7 +29,6 @@ async function getProfileById(id) {
 }
 
 async function createProfile({ institutional_id, full_name, organization_id, email, password }) {
-  // Crear usuario en Supabase Auth
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -45,7 +42,6 @@ async function createProfile({ institutional_id, full_name, organization_id, ema
     throw new Error(authError.message)
   }
 
-  // Crear perfil de votante
   const { data, error } = await supabase
     .from('voter_profile')
     .insert({
@@ -58,7 +54,6 @@ async function createProfile({ institutional_id, full_name, organization_id, ema
     .single()
 
   if (error) {
-    // Rollback: eliminar usuario auth si falla el perfil
     await supabase.auth.admin.deleteUser(authData.user.id)
     if (error.code === '23505') {
       throw { status: 409, message: 'Ya existe un votante con ese numero de cuenta' }
@@ -89,7 +84,6 @@ async function updateProfile(id, updates) {
 }
 
 async function removeProfile(id) {
-  // Obtener auth_user_id para eliminar de Supabase Auth
   const { data: profile } = await supabase
     .from('voter_profile')
     .select('auth_user_id')
@@ -103,15 +97,12 @@ async function removeProfile(id) {
 
   if (error) throw new Error(error.message)
 
-  // Eliminar usuario auth
   if (profile?.auth_user_id) {
     await supabase.auth.admin.deleteUser(profile.auth_user_id)
   }
 
   return true
 }
-
-// --- Election Voters (habilitacion) ---
 
 async function getByElection(electionId, { search } = {}) {
   let query = supabase

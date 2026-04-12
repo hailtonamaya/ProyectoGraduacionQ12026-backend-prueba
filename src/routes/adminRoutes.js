@@ -5,7 +5,6 @@ const { authenticate } = require('../middleware/auth')
 const { authorize } = require('../middleware/authorize')
 const { validate } = require('../middleware/validate')
 
-// Solo admin_master puede gestionar administradores
 router.use(authenticate, authorize('admin_master'))
 
 router.get('/', adminController.getAll)

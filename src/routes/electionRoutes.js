@@ -7,7 +7,6 @@ const { validate } = require('../middleware/validate')
 
 router.use(authenticate, authorize('admin', 'admin_master'))
 
-// CRUD
 router.get('/', electionController.getAll)
 router.get('/:id', electionController.getById)
 
@@ -21,13 +20,11 @@ router.post('/', validate({
 router.put('/:id', electionController.update)
 router.delete('/:id', electionController.remove)
 
-// Acciones
 router.post('/:id/duplicate', electionController.duplicate)
 router.put('/:id/open', electionController.open)
 router.put('/:id/close', electionController.close)
 router.put('/:id/reopen', electionController.reopen)
 
-// Reportes
 router.get('/:id/results', electionController.getResults)
 router.get('/:id/validate', electionController.getValidation)
 

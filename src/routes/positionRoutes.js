@@ -7,7 +7,6 @@ const { validate } = require('../middleware/validate')
 
 router.use(authenticate, authorize('admin', 'admin_master'))
 
-// Posiciones por eleccion
 router.get('/election/:electionId', positionController.getAll)
 router.get('/:id', positionController.getById)
 
@@ -18,7 +17,6 @@ router.post('/election/:electionId', validate({
 router.put('/:id', positionController.update)
 router.delete('/:id', positionController.remove)
 
-// Asignar/remover candidatos a cargos
 router.post('/:positionId/candidates', validate({
   candidate_id: { required: true, type: 'string' }
 }), positionController.addCandidate)

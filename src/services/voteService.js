@@ -1,7 +1,6 @@
 const { supabase, supabaseAdmin } = require('../config/supabase')
 
 async function getElectionForVoter(authUserId) {
-  // Obtener perfil del votante
   const { data: voter, error: voterError } = await supabase
     .from('voter_profile')
     .select('voter_id, full_name, organization:organization_id(name, code)')
@@ -12,7 +11,6 @@ async function getElectionForVoter(authUserId) {
     throw { status: 404, message: 'Perfil de votante no encontrado' }
   }
 
-  // Obtener elecciones activas donde esta habilitado
   const { data: enablements } = await supabase
     .from('election_voter')
     .select(`
@@ -33,7 +31,6 @@ async function getElectionForVoter(authUserId) {
 }
 
 async function getElectionBallot(electionId, authUserId) {
-  // Verificar votante
   const { data: voter } = await supabase
     .from('voter_profile')
     .select('voter_id')
@@ -42,7 +39,6 @@ async function getElectionBallot(electionId, authUserId) {
 
   if (!voter) throw { status: 404, message: 'Perfil de votante no encontrado' }
 
-  // Verificar habilitacion
   const { data: ev } = await supabase
     .from('election_voter')
     .select('election_voter_id, has_voted')
@@ -53,7 +49,6 @@ async function getElectionBallot(electionId, authUserId) {
   if (!ev) throw { status: 403, message: 'No estas habilitado para votar en esta eleccion' }
   if (ev.has_voted) throw { status: 400, message: 'Ya emitiste tu voto en esta eleccion' }
 
-  // Obtener eleccion con posiciones y candidatos
   const { data: election } = await supabase
     .from('election')
     .select('election_id, title, description, organization:organization_id(name)')
@@ -79,7 +74,6 @@ async function getElectionBallot(electionId, authUserId) {
 }
 
 async function castVote(electionId, authUserId, votes) {
-  // Verificar votante
   const { data: voter } = await supabase
     .from('voter_profile')
     .select('voter_id')
@@ -88,7 +82,6 @@ async function castVote(electionId, authUserId, votes) {
 
   if (!voter) throw { status: 404, message: 'Perfil de votante no encontrado' }
 
-  // Verificar habilitacion
   const { data: ev } = await supabase
     .from('election_voter')
     .select('election_voter_id, has_voted')
@@ -99,7 +92,6 @@ async function castVote(electionId, authUserId, votes) {
   if (!ev) throw { status: 403, message: 'No estas habilitado para votar en esta eleccion' }
   if (ev.has_voted) throw { status: 400, message: 'Ya emitiste tu voto' }
 
-  // Verificar eleccion abierta
   const { data: election } = await supabase
     .from('election')
     .select('status')
@@ -110,7 +102,6 @@ async function castVote(electionId, authUserId, votes) {
     throw { status: 400, message: 'La eleccion no esta abierta' }
   }
 
-  // Verificar que se voto en todas las posiciones
   const { data: positions } = await supabase
     .from('position')
     .select('position_id, name, allows_blank')
@@ -125,7 +116,6 @@ async function castVote(electionId, authUserId, votes) {
     }
   }
 
-  // Verificar candidatos validos
   for (const vote of votes) {
     if (!positionIds.has(vote.position_id)) {
       throw { status: 400, message: 'Posicion no pertenece a esta eleccion' }
@@ -145,7 +135,7 @@ async function castVote(electionId, authUserId, votes) {
     }
   }
 
-  // Crear boleta anonima (usa supabaseAdmin para bypasear RLS)
+  // supabaseAdmin para bypass de RLS
   const { data: ballot, error: ballotError } = await supabaseAdmin
     .from('ballot')
     .insert({ election_id: electionId })
@@ -154,7 +144,6 @@ async function castVote(electionId, authUserId, votes) {
 
   if (ballotError) throw new Error(ballotError.message)
 
-  // Crear votos por cargo
   const ballotVotes = votes.map(v => ({
     ballot_id: ballot.ballot_id,
     position_id: v.position_id,
@@ -171,7 +160,6 @@ async function castVote(electionId, authUserId, votes) {
     throw new Error(votesError.message)
   }
 
-  // Marcar votante como que ya voto
   const { error: updateError } = await supabaseAdmin
     .from('election_voter')
     .update({ has_voted: true, voted_at: new Date().toISOString() })

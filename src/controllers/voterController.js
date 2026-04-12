@@ -1,8 +1,6 @@
 const voterService = require('../services/voterService')
 const { success, created, error } = require('../utils/responseHelper')
 
-// --- Voter Profiles ---
-
 async function getAllProfiles(req, res, next) {
   try {
     const { organization_id, search } = req.query
@@ -51,8 +49,6 @@ async function removeProfile(req, res, next) {
     next(err)
   }
 }
-
-// --- Election Voters ---
 
 async function getByElection(req, res, next) {
   try {

@@ -113,7 +113,6 @@ async function changePassword(adminId, currentPassword, newPassword) {
 }
 
 async function sendVoterOtp(email) {
-  // Validar dominio institucional
   if (!email.endsWith('@unitec.edu')) {
     throw { status: 400, message: 'Solo se permite correo institucional @unitec.edu' }
   }
@@ -143,7 +142,6 @@ async function verifyVoterOtp(email, token) {
     throw { status: 401, message: 'Codigo invalido o expirado' }
   }
 
-  // Buscar perfil de votante existente
   const { data: voter } = await supabase
     .from('voter_profile')
     .select('*, organization:organization_id(organization_id, name, code)')

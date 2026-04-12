@@ -2,7 +2,6 @@ const jwt = require('jsonwebtoken')
 const { supabase } = require('../config/supabase')
 const { unauthorized } = require('../utils/responseHelper')
 
-// Middleware para admins (JWT custom)
 function authenticate(req, res, next) {
   const header = req.headers.authorization
   if (!header || !header.startsWith('Bearer ')) {
@@ -20,7 +19,6 @@ function authenticate(req, res, next) {
   }
 }
 
-// Middleware para votantes (Supabase Auth JWT)
 async function authenticateVoter(req, res, next) {
   const header = req.headers.authorization
   if (!header || !header.startsWith('Bearer ')) {

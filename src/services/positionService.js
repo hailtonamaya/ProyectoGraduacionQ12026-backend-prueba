@@ -81,7 +81,6 @@ async function remove(id) {
   return true
 }
 
-// Asignar candidato a posicion
 async function addCandidate(positionId, candidateId) {
   const { data, error } = await supabase
     .from('candidate_in_position')
@@ -101,7 +100,6 @@ async function addCandidate(positionId, candidateId) {
   return data
 }
 
-// Remover candidato de posicion
 async function removeCandidate(candidateInPositionId) {
   const { error } = await supabase
     .from('candidate_in_position')

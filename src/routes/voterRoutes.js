@@ -7,7 +7,6 @@ const { validate } = require('../middleware/validate')
 
 router.use(authenticate, authorize('admin', 'admin_master'))
 
-// --- Perfiles de votantes ---
 router.get('/profiles', voterController.getAllProfiles)
 router.get('/profiles/:id', voterController.getProfileById)
 
@@ -22,7 +21,6 @@ router.post('/profiles', validate({
 router.put('/profiles/:id', voterController.updateProfile)
 router.delete('/profiles/:id', voterController.removeProfile)
 
-// --- Habilitacion de votantes por eleccion ---
 router.get('/election/:electionId', voterController.getByElection)
 
 router.post('/election/:electionId', validate({

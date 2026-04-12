@@ -1,8 +1,6 @@
 const { createClient } = require('@supabase/supabase-js')
 require('dotenv').config()
 
-// Cliente principal - para operaciones generales del backend
-// Usa service_role key para bypasear RLS
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY,
@@ -14,8 +12,7 @@ const supabase = createClient(
   }
 )
 
-// Cliente admin dedicado - para operaciones sensibles (ballot, votes)
-// Nunca se contamina con tokens de usuario
+// cliente separado para operaciones que necesitan bypass de RLS
 const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_KEY,
@@ -28,9 +25,9 @@ const supabaseAdmin = createClient(
 )
 
 if (!supabase) {
-  console.error('Error connecting to Supabase')
+  console.error('Error al conectar con Supabase')
 } else {
-  console.log('Connected to Supabase')
+  console.log('Supabase conectado')
 }
 
 module.exports = { supabase, supabaseAdmin }

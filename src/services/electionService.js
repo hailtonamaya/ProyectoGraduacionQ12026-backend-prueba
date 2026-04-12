@@ -118,7 +118,6 @@ async function changeStatus(id, newStatus) {
 }
 
 async function validateElectionReady(electionId) {
-  // Verificar que tiene posiciones
   const { data: positions } = await supabase
     .from('position')
     .select('position_id, name')
@@ -128,7 +127,6 @@ async function validateElectionReady(electionId) {
     throw { status: 400, message: 'La eleccion debe tener al menos un cargo/posicion' }
   }
 
-  // Verificar que cada posicion tiene candidatos
   for (const pos of positions) {
     const { data: cips } = await supabase
       .from('candidate_in_position')
@@ -140,7 +138,6 @@ async function validateElectionReady(electionId) {
     }
   }
 
-  // Verificar que tiene votantes habilitados
   const { data: voters } = await supabase
     .from('election_voter')
     .select('election_voter_id')
@@ -156,20 +153,17 @@ async function validateElectionReady(electionId) {
 async function getResults(id) {
   const election = await getById(id)
 
-  // Resultados por posicion usando la vista
   const { data: results, error: resultsError } = await supabase
     .from('v_results_by_position')
     .select('*')
     .eq('election_id', id)
 
-  // Participacion
   const { data: participation } = await supabase
     .from('v_participation')
     .select('*')
     .eq('election_id', id)
     .single()
 
-  // Votos en blanco
   const { data: blankVotes } = await supabase
     .from('v_blank_votes')
     .select('*')
@@ -187,7 +181,6 @@ async function getValidation(id) {
   const election = await getById(id)
   const issues = []
 
-  // Posiciones
   const { data: positions } = await supabase
     .from('position')
     .select('position_id, name')
@@ -214,7 +207,6 @@ async function getValidation(id) {
     }
   }
 
-  // Votantes
   const { data: voters } = await supabase
     .from('election_voter')
     .select('election_voter_id')
