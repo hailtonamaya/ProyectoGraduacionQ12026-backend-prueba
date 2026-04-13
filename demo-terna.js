@@ -1,13 +1,4 @@
-// ============================================================
-// DEMO PARA TERNA EVALUADORA
-// Plataforma Digital para Votaciones Estudiantiles
-// Proyecto de Graduacion Q1 2026
-//
-// Uso: node demo-terna.js
-//
-// Trabaja directamente con Supabase (esquema real).
-// No depende de los endpoints del API.
-// ============================================================
+// demo-terna.js -- script de demostracion para la terna
 
 require('dotenv').config()
 const express = require('express')
@@ -17,7 +8,6 @@ const { supabaseAdmin } = require('./src/config/supabase')
 
 const PORT = 3333
 
-// -- Colores consola --
 const C = {
   reset: '\x1b[0m',
   bold: '\x1b[1m',
@@ -59,10 +49,6 @@ function fail(text) {
 function generateHash() {
   return crypto.randomBytes(32).toString('hex')
 }
-
-// ============================================================
-// QUERIES DE RESULTADOS (sin vistas, queries directos)
-// ============================================================
 
 async function queryParticipation(electionId) {
   const { data } = await supabaseAdmin
@@ -131,10 +117,6 @@ async function queryResultsByCareer(electionId) {
 
   return results
 }
-
-// ============================================================
-// ENDPOINT OBSERVADOR (HTML con auto-refresh cada 5s)
-// ============================================================
 
 function buildObserverApp() {
   const app = express()
@@ -241,10 +223,6 @@ function buildObserverApp() {
   return app
 }
 
-// ============================================================
-// FASE 1: PREPARACION DE DATOS
-// ============================================================
-
 async function setupDemoData() {
   header('FASE 1: PREPARACION DE DATOS')
 
@@ -256,7 +234,6 @@ async function setupDemoData() {
   }
   ok('Conexion a Supabase verificada')
 
-  // -- Limpiar datos demo anteriores --
   console.log('  Limpiando datos demo anteriores...')
   const { data: oldElections } = await supabaseAdmin
     .from('election').select('election_id').ilike('title', '%Demo Terna%')
@@ -283,7 +260,6 @@ async function setupDemoData() {
   }
   ok('Datos anteriores limpiados')
 
-  // -- Organizacion --
   subheader('Organizacion')
   let orgId
   const { data: existingOrg } = await supabaseAdmin
@@ -301,7 +277,6 @@ async function setupDemoData() {
   }
   info('ID', orgId)
 
-  // -- Carrera --
   subheader('Carrera')
   let career
   const { data: existingCareer } = await supabaseAdmin
@@ -321,7 +296,6 @@ async function setupDemoData() {
   }
   info('ID', career.career_id)
 
-  // -- Eleccion --
   subheader('Eleccion')
   const now = new Date()
   const later = new Date(now.getTime() + 24 * 60 * 60 * 1000)
@@ -342,7 +316,6 @@ async function setupDemoData() {
   ok('Eleccion "' + election.title + '" creada')
   info('ID', election.election_id)
 
-  // -- Vincular carrera a eleccion --
   subheader('Vinculacion eleccion <-> carrera')
   const { data: ec, error: ecErr } = await supabaseAdmin
     .from('election_career')
@@ -353,7 +326,6 @@ async function setupDemoData() {
   ok('Carrera vinculada a la eleccion')
   info('election_career_id', ec.election_career_id)
 
-  // -- Asociaciones (planillas) --
   subheader('Asociaciones / Planillas')
   const assocDefs = [
     {
@@ -397,7 +369,6 @@ async function setupDemoData() {
     ok(ad.name + ' (' + ad.members.length + ' miembros)')
   }
 
-  // -- Usuarios y estudiantes --
   subheader('Estudiantes')
   const studentDefs = [
     { email: 'demo.est1@unitec.edu', name: 'Pedro Ramirez', iid: '20260001' },
@@ -407,7 +378,6 @@ async function setupDemoData() {
 
   const students = []
   for (const sd of studentDefs) {
-    // user_account
     let userId
     const { data: existingUser } = await supabaseAdmin
       .from('user_account').select('user_id').eq('email', sd.email).single()
@@ -425,7 +395,6 @@ async function setupDemoData() {
       ok('Usuario: ' + sd.name)
     }
 
-    // student_profile
     let studentId
     const { data: existingProfile } = await supabaseAdmin
       .from('student_profile').select('student_id').eq('user_id', userId).single()
@@ -449,7 +418,6 @@ async function setupDemoData() {
       }
     }
 
-    // student_career
     const { data: existingSc } = await supabaseAdmin
       .from('student_career').select('student_career_id')
       .eq('student_id', studentId).eq('career_id', career.career_id).single()
@@ -464,7 +432,6 @@ async function setupDemoData() {
     students.push({ student_id: studentId, user_id: userId, ...sd })
   }
 
-  // -- Habilitar votantes --
   subheader('Habilitacion de votantes')
   for (const s of students) {
     const { error: evErr } = await supabaseAdmin
@@ -475,7 +442,6 @@ async function setupDemoData() {
     ok(s.name + ' habilitado para votar')
   }
 
-  // -- Abrir eleccion --
   subheader('Abriendo eleccion')
   const { error: openErr } = await supabaseAdmin
     .from('election').update({ status: 'open' }).eq('election_id', election.election_id)
@@ -484,10 +450,6 @@ async function setupDemoData() {
 
   return { election, career, ec, associations, students, orgId }
 }
-
-// ============================================================
-// OBSERVADOR EN CONSOLA
-// ============================================================
 
 async function showResults(electionId, label) {
   header('OBSERVADOR: ' + (label || ''))
@@ -529,14 +491,9 @@ async function showResults(electionId, label) {
   }
 }
 
-// ============================================================
-// FLUJO DE VOTACION
-// ============================================================
-
 async function votingFlow(election, career, associations, student) {
   subheader('VOTANTE: ' + student.name + ' (' + student.iid + ')')
 
-  // Verificar que esta habilitado y no ha votado
   const { data: ev } = await supabaseAdmin
     .from('election_voter')
     .select('election_voter_id, has_voted')
@@ -554,7 +511,6 @@ async function votingFlow(election, career, associations, student) {
     return false
   }
 
-  // Mostrar info del estudiante
   ok('Estudiante autenticado')
   info('    Nombre', student.name)
   info('    Cuenta', student.iid)
@@ -562,7 +518,6 @@ async function votingFlow(election, career, associations, student) {
   info('    Carrera', career.name)
   info('    Eleccion', election.title)
 
-  // Mostrar asociaciones disponibles
   console.log('\n  ' + C.yellow + 'ASOCIACIONES / PLANILLAS DISPONIBLES:' + C.reset)
   console.log('    ' + C.dim + '0) Voto en blanco' + C.reset)
 
@@ -570,7 +525,6 @@ async function votingFlow(election, career, associations, student) {
     const a = associations[i]
     console.log('    ' + (i + 1) + ') ' + C.bold + a.name + C.reset)
 
-    // Mostrar miembros
     const { data: members } = await supabaseAdmin
       .from('association_member')
       .select('full_name, role')
@@ -581,7 +535,6 @@ async function votingFlow(election, career, associations, student) {
     }
   }
 
-  // Pedir voto
   const choice = await ask('\n  Su voto (numero): ')
   const num = parseInt(choice)
 
@@ -599,7 +552,6 @@ async function votingFlow(election, career, associations, student) {
     isBlank = true
   }
 
-  // Resumen
   console.log('\n  ' + C.bold + 'RESUMEN DEL VOTO:' + C.reset)
   console.log('  ' + line('-', 40))
   info('  Estudiante', student.name)
@@ -617,10 +569,8 @@ async function votingFlow(election, career, associations, student) {
     return false
   }
 
-  // Registrar voto
   console.log('\n  Registrando voto...')
 
-  // 1. Crear boleta anonima
   const ballotHash = generateHash()
   const { data: ballot, error: ballotErr } = await supabaseAdmin
     .from('ballot')
@@ -636,7 +586,6 @@ async function votingFlow(election, career, associations, student) {
     return false
   }
 
-  // 2. Crear voto
   const voteData = {
     ballot_id: ballot.ballot_id,
     is_blank: isBlank
@@ -655,7 +604,6 @@ async function votingFlow(election, career, associations, student) {
     return false
   }
 
-  // 3. Marcar como votado
   const { error: updateErr } = await supabaseAdmin
     .from('election_voter')
     .update({ has_voted: true, voted_at: new Date().toISOString() })
@@ -666,7 +614,6 @@ async function votingFlow(election, career, associations, student) {
     return false
   }
 
-  // Confirmacion
   console.log('')
   console.log('  ' + C.bgGreen + C.bold + '                                          ' + C.reset)
   console.log('  ' + C.bgGreen + C.bold + '    VOTO REGISTRADO EXITOSAMENTE           ' + C.reset)
@@ -676,7 +623,6 @@ async function votingFlow(election, career, associations, student) {
   info('  Hash de boleta', ballotHash.substring(0, 16) + '...')
   info('  Fecha/hora', new Date().toISOString())
 
-  // Verificar estado post-voto
   const { data: evPost } = await supabaseAdmin
     .from('election_voter')
     .select('has_voted, voted_at')
@@ -687,7 +633,6 @@ async function votingFlow(election, career, associations, student) {
     info('  Estado en BD', evPost.has_voted ? 'Voto confirmado' : 'No registrado')
   }
 
-  // Demostrar proteccion contra doble voto
   console.log('\n  Verificando proteccion contra doble voto...')
   const { data: evCheck } = await supabaseAdmin
     .from('election_voter')
@@ -703,10 +648,6 @@ async function votingFlow(election, career, associations, student) {
   return true
 }
 
-// ============================================================
-// LIMPIEZA
-// ============================================================
-
 async function cleanup(data) {
   header('LIMPIEZA DE DATOS')
 
@@ -716,7 +657,6 @@ async function cleanup(data) {
     return
   }
 
-  // ballot_vote -> ballot -> election_voter -> association_member -> association -> election_career -> election
   const { data: ballots } = await supabaseAdmin
     .from('ballot').select('ballot_id').eq('election_id', data.election.election_id)
   for (const b of (ballots || [])) {
@@ -740,7 +680,6 @@ async function cleanup(data) {
   await supabaseAdmin.from('election').delete().eq('election_id', data.election.election_id)
   ok('Eleccion eliminada')
 
-  // Limpiar estudiantes demo
   for (const s of data.students) {
     await supabaseAdmin.from('student_career').delete()
       .eq('student_id', s.student_id).eq('career_id', data.career.career_id)
@@ -749,7 +688,6 @@ async function cleanup(data) {
   }
   ok('Estudiantes eliminados')
 
-  // Carrera demo
   const { data: remainingEc } = await supabaseAdmin
     .from('election_career').select('election_career_id').eq('career_id', data.career.career_id)
   if (!remainingEc || remainingEc.length === 0) {
@@ -757,7 +695,6 @@ async function cleanup(data) {
     ok('Carrera eliminada')
   }
 
-  // Organizacion demo
   const { data: remainingEl } = await supabaseAdmin
     .from('election').select('election_id').eq('organization_id', data.orgId)
   if (!remainingEl || remainingEl.length === 0) {
@@ -771,10 +708,6 @@ async function cleanup(data) {
 
   console.log('\n  Limpieza completada.\n')
 }
-
-// ============================================================
-// MAIN
-// ============================================================
 
 async function main() {
   console.log('')
@@ -798,11 +731,9 @@ async function main() {
   console.log('')
 
   try {
-    // FASE 1
     const data = await setupDemoData()
     await ask('\n  Presione ENTER para ver el observador de resultados...')
 
-    // FASE 2: Observador ANTES
     await showResults(data.election.election_id, 'ANTES DE VOTAR')
 
     console.log('\n  ' + C.bold + 'Endpoint observador (abrir en navegador):' + C.reset)
@@ -811,8 +742,7 @@ async function main() {
 
     await ask('\n  Presione ENTER para iniciar la votacion...')
 
-    // FASE 3: Votacion
-    header('FASE 3: FLUJO DE VOTACION')
+    header('FLUJO DE VOTACION')
     console.log('  3 estudiantes votaran de forma interactiva.')
     console.log('  Cada uno vera las planillas disponibles y seleccionara su voto.\n')
 
@@ -825,7 +755,6 @@ async function main() {
 
     await ask('\n  Presione ENTER para ver los resultados finales...')
 
-    // FASE 4: Observador DESPUES
     await showResults(data.election.election_id, 'RESULTADOS FINALES')
 
     console.log('\n  ' + C.bold + 'Ver resultados graficos en el navegador:' + C.reset)
@@ -833,7 +762,6 @@ async function main() {
 
     await ask('\n  Presione ENTER para continuar...')
 
-    // FASE 5: Limpieza
     await cleanup(data)
 
   } catch (err) {
@@ -846,7 +774,6 @@ async function main() {
   process.exit(0)
 }
 
-// -- Arrancar servidor y correr demo --
 const app = buildObserverApp()
 
 const server = app.listen(PORT, () => {
